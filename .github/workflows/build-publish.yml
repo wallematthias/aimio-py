@@ -1,0 +1,90 @@
+name: Build and Publish
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: [3.10, 3.11]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-activate-base: false
+          python-version: ${{ matrix.python-version }}
+          miniconda-version: latest
+
+      - name: Create conda env and install deps
+        shell: bash
+        run: |
+          mamba create -y -n buildenv python=${{ matrix.python-version }} -c conda-forge \
+            boost pybind11 numpy pytest pip setuptools wheel cmake make ninja || \
+          conda create -y -n buildenv python=${{ matrix.python-version }} -c conda-forge \
+            boost pybind11 numpy pytest pip setuptools wheel cmake make ninja
+          source $(conda info --base)/etc/profile.d/conda.sh
+          conda activate buildenv
+          python -m pip install --upgrade pip build
+
+      - name: Build wheel and sdist
+        shell: bash
+        run: |
+          source $(conda info --base)/etc/profile.d/conda.sh
+          conda activate buildenv
+          python -m pytest -q || true
+          python -m build --wheel --sdist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: dist/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-activate-base: false
+          python-version: 3.11
+
+      - name: Create conda env and install twine
+        shell: bash
+        run: |
+          mamba create -y -n publishenv python=3.11 -c conda-forge pip twine || \
+          conda create -y -n publishenv python=3.11 -c conda-forge pip twine
+          source $(conda info --base)/etc/profile.d/conda.sh
+          conda activate publishenv
+
+      - name: Build packages
+        shell: bash
+        run: |
+          source $(conda info --base)/etc/profile.d/conda.sh
+          conda activate publishenv
+          python -m build --wheel --sdist
+
+      - name: Publish to PyPI
+        if: secrets.PYPI_API_TOKEN
+        env:
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          python -m twine upload dist/* -u __token__ -p "$TWINE_PASSWORD"

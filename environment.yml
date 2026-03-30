@@ -1,0 +1,17 @@
+name: aimio-py
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - boost
+  - pybind11
+  - numpy
+  - pytest
+  - pip
+  - setuptools
+  - wheel
+  - cmake
+  - ninja
+  - make
+  - pip:
+    - build
