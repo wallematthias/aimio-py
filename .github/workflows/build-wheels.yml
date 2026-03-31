@@ -134,5 +134,41 @@ jobs:
           name: sdist
           path: dist
 
+      - name: Set up Python for debug tooling
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Debug artifact inventory
+        run: |
+          echo "Current dist/ contents:"
+          ls -lah dist
+          echo
+          echo "Wheel files:"
+          ls -1 dist/*.whl || true
+          echo
+          echo "Source distributions:"
+          ls -1 dist/*.tar.gz || true
+
+      - name: Debug wheel tags
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          wheels = sorted(Path("dist").glob("*.whl"))
+          if not wheels:
+              print("No wheels found in dist/")
+          for w in wheels:
+              print(w.name)
+              if "linux_x86_64" in w.name and "manylinux" not in w.name and "musllinux" not in w.name:
+                  print("  WARNING: non-portable linux tag detected (likely rejected by PyPI)")
+          PY
+
+      - name: Twine check (debug)
+        run: |
+          python -m pip install --upgrade pip twine
+          python -m twine check dist/*
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
