@@ -51,7 +51,6 @@ jobs:
 
       - name: Create release and upload assets
         uses: softprops/action-gh-release@v2
-dist/**/*.tar.gz
         with:
           files: |
             dist/**/*.whl
