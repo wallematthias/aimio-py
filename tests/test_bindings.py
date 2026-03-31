@@ -1,7 +1,7 @@
-import os
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from py_aimio import aim_info, read_aim, write_aim
 
@@ -9,7 +9,13 @@ from py_aimio import aim_info, read_aim, write_aim
 DATA_FILE = Path(__file__).parent.parent / "data" / "DB_07_DNN_DR_T1_TRAB_MASK.AIM"
 
 
+def _require_sample_data() -> None:
+    if not DATA_FILE.exists():
+        pytest.skip(f"Sample AIM test data not available: {DATA_FILE}")
+
+
 def test_aim_info_and_read():
+    _require_sample_data()
     p = str(DATA_FILE)
     info = aim_info(p)
     assert "dimensions" in info
@@ -25,6 +31,7 @@ def test_aim_info_and_read():
 
 
 def test_roundtrip(tmp_path):
+    _require_sample_data()
     p = str(DATA_FILE)
     arr, meta = read_aim(p)
     out = tmp_path / "out.AIM"

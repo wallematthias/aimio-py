@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import numpy as np
+import pytest
 
 from py_aimio import read_aim, write_aim
 
@@ -9,6 +9,8 @@ DATA_FILE = Path(__file__).parent.parent / "data" / "DB_07_DNN_DR_T1_TRAB_MASK.A
 
 
 def test_processing_log_edit_roundtrip(tmp_path):
+    if not DATA_FILE.exists():
+        pytest.skip(f"Sample AIM test data not available: {DATA_FILE}")
     p = str(DATA_FILE)
     arr, meta = read_aim(p)
 
