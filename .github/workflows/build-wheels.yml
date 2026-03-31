@@ -69,7 +69,7 @@ jobs:
             C:\vcpkg\bootstrap-vcpkg.bat &&
             C:\vcpkg\vcpkg.exe install boost-format:x64-windows
           CIBW_ENVIRONMENT_WINDOWS: >-
-            INCLUDE="C:\vcpkg\installed\x64-windows\include;%INCLUDE%"
+            VCPKG_ROOT="C:/vcpkg"
         run: |
           python -m cibuildwheel --output-dir dist
 

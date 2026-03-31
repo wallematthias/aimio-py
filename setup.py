@@ -91,6 +91,19 @@ def gather_include_dirs() -> list[str]:
         for candidate in conda_include_candidates:
             if candidate.is_dir():
                 include_dirs.append(str(candidate))
+
+    # Windows CI commonly installs Boost through vcpkg; include that path when present.
+    if sys.platform == "win32":
+        vcpkg_root = Path(os.environ.get("VCPKG_ROOT", r"C:\vcpkg"))
+        vcpkg_include_candidates = [
+            vcpkg_root / "installed" / "x64-windows" / "include",
+            vcpkg_root / "installed" / "x86-windows" / "include",
+            vcpkg_root / "installed" / "arm64-windows" / "include",
+        ]
+        for candidate in vcpkg_include_candidates:
+            if candidate.is_dir():
+                include_dirs.append(str(candidate))
+                break
     return include_dirs
 
 
