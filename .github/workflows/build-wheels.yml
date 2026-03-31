@@ -42,8 +42,8 @@ jobs:
             numpy \
             pip \
             setuptools \
-            wheel \
-            build
+            wheel
+          python -m pip install --upgrade build
 
       - name: Build wheel
         shell: bash -l {0}
