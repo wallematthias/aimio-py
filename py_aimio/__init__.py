@@ -25,10 +25,20 @@ from .header_log import log_to_dict, dict_to_log
 
 
 def _not_built():
-    raise RuntimeError("AimIO extension not built. Run `pip install -e .` after adding AimIO submodule.")
+    raise RuntimeError(
+        "AimIO extension not built. Ensure submodules are initialized "
+        "(`git submodule update --init --recursive`) and run `pip install -e .`."
+    )
 
 
 def aim_info(path: str):
+    """Read AIM header metadata without loading full image data.
+
+    Example:
+        >>> meta = aim_info("scan.AIM")
+        >>> tuple(meta["dimensions"])
+        (256, 256, 200)
+    """
     if _aimio is None:
         _not_built()
     return _aimio.aim_info(path)
@@ -44,6 +54,11 @@ def read_aim(path: str, density: bool = False, hu: bool = False) -> Tuple[np.nda
 
     Returns:
         (array, meta) where array is a numpy ndarray (possibly float) and meta is the AIM header dict.
+
+    Example:
+        >>> arr, meta = read_aim("scan.AIM")
+        >>> arr.shape
+        (200, 256, 256)
     """
     if _aimio is None:
         _not_built()
@@ -92,6 +107,10 @@ def write_aim(path: str, array, meta: dict = None, unit: str = None):
 
     Returns:
         header dict from the underlying write call.
+
+    Example:
+        >>> arr, meta = read_aim("scan.AIM")
+        >>> write_aim("scan_copy.AIM", arr, meta)
     """
     if _aimio is None:
         _not_built()

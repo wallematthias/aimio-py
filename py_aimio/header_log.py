@@ -21,7 +21,13 @@ def _maybe_number(value):
 
 
 def log_to_dict(log):
-    """Convert a formatted AIM log string into a dictionary."""
+    """Convert a formatted AIM log string into a dictionary.
+
+    Example:
+        >>> d = log_to_dict("Mu_Scaling                    8192")
+        >>> d["Mu_Scaling"]
+        8192
+    """
     lines = log.split("\n")
     log_dict = {}
 
@@ -46,7 +52,13 @@ def log_to_dict(log):
 
 
 def dict_to_log(log_dict):
-    """Convert a log dictionary into the formatted AIM log string format."""
+    """Convert a dictionary into AIM processing-log text.
+
+    Example:
+        >>> s = dict_to_log({"Mu_Scaling": 8192})
+        >>> "Mu_Scaling" in s
+        True
+    """
     log = "! Processing Log\n!\n!-------------------------------------------------------------------------------\n"
     split_line = "!-------------------------------------------------------------------------------\n"
     for key, value in log_dict.items():

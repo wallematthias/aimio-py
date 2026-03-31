@@ -1,0 +1,10 @@
+include LICENSE
+include README.md
+include pyproject.toml
+include setup.py
+include setup.cfg
+include .gitmodules
+recursive-include bindings *.cpp
+recursive-include external/AimIO/include *.h
+recursive-include external/AimIO/source *.h *.cxx
+recursive-include external/n88util/include *.hpp

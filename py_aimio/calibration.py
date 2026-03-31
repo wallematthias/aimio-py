@@ -1,11 +1,10 @@
-equations for HU and density spaces.
-
 """
 Calibration helpers for converting AIM native values.
 
-These utilities parse AIM processing logs and return linear conversion equations for HU and density spaces.
+These utilities parse AIM processing logs and return linear conversion
+equations for HU and density spaces.
 
-Adapted from Bonelab/Bonelab (https://github.com/Bonelab/Bonelab/)
+Adapted from Bonelab/Bonelab (https://github.com/Bonelab/Bonelab/).
 """
 
 import re
@@ -19,7 +18,10 @@ def _extract(pattern, processing_log, cast, field_name):
 
 
 def get_aim_hu_equation(processing_log):
-    """Return linear equation converting Native -> HU as (m, b)."""
+    """Return linear equation converting native values to HU as ``(m, b)``.
+
+    Use as ``hu = native * m + b``.
+    """
     mu_scaling, hu_mu_water, hu_mu_air, _, _ = get_aim_calibration_constants_from_processing_log(processing_log)
     m = 1000.0 / (mu_scaling * (hu_mu_water - hu_mu_air))
     b = -1000.0 * hu_mu_water / (hu_mu_water - hu_mu_air)
@@ -27,7 +29,10 @@ def get_aim_hu_equation(processing_log):
 
 
 def get_aim_density_equation(processing_log):
-    """Return linear equation converting Native -> density as (m, b)."""
+    """Return linear equation converting native values to density as ``(m, b)``.
+
+    Use as ``density = native * m + b``.
+    """
     mu_scaling, _, _, density_slope, density_intercept = get_aim_calibration_constants_from_processing_log(processing_log)
     m = density_slope / mu_scaling
     b = density_intercept
@@ -35,7 +40,11 @@ def get_aim_density_equation(processing_log):
 
 
 def get_aim_calibration_constants_from_processing_log(processing_log):
-    """Extract calibration constants from an AIM processing log string."""
+    """Extract calibration constants from an AIM processing log string.
+
+    Returns:
+        Tuple ``(mu_scaling, hu_mu_water, hu_mu_air, density_slope, density_intercept)``.
+    """
     number = r"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)"
 
     mu_scaling = _extract(r"Mu_Scaling\s+(\d+)", processing_log, int, "Mu_Scaling")

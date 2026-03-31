@@ -1,45 +1,58 @@
-from setuptools import setup, Extension
-import os
+from pathlib import Path
 import sys
 
-# project root
-here = os.path.dirname(__file__)
+from setuptools import Extension, setup
 
-def gather_sources():
-    here = os.path.dirname(__file__)
-    src = [os.path.join('bindings','aimio_bindings.cpp')]
-    aimio_dir = os.path.join(here, 'AimIO')
-    if os.path.isdir(aimio_dir):
-        for root, _, files in os.walk(os.path.join(aimio_dir, 'source')):
-            for f in files:
-                if not f.endswith(('.cxx', '.cpp', '.cc')):
-                    continue
-                # skip example / tool files that define main or duplicate symbols
-                if f in ('aix.cxx', 'ctheader.cxx'):
-                    continue
-                src.append(os.path.relpath(os.path.join(root, f), here))
-    return src
+ROOT = Path(__file__).resolve().parent
+AIMIO_ROOT = ROOT / "external" / "AimIO"
+N88UTIL_ROOT = ROOT / "external" / "n88util"
 
-from setuptools import setup
-try:
-    import pybind11
+SKIP_SOURCE_FILES = {"aix.cxx", "ctheader.cxx"}
+
+
+def _require_dir(path: Path, label: str) -> None:
+    if not path.is_dir():
+        raise RuntimeError(
+            f"Missing required directory '{path}'. Ensure git submodules are initialized for {label}:\n"
+            "  git submodule update --init --recursive"
+        )
+
+
+def gather_sources() -> list[str]:
+    _require_dir(AIMIO_ROOT / "source", "AimIO")
+    sources = [ROOT / "bindings" / "aimio_bindings.cpp"]
+    for source in (AIMIO_ROOT / "source").rglob("*"):
+        if source.suffix not in {".cxx", ".cpp", ".cc"}:
+            continue
+        if source.name in SKIP_SOURCE_FILES:
+            continue
+        sources.append(source)
+    return [str(path.relative_to(ROOT)) for path in sources]
+
+
+def gather_include_dirs() -> list[str]:
+    _require_dir(AIMIO_ROOT / "include", "AimIO")
+    _require_dir(N88UTIL_ROOT / "include", "n88util")
+
     import numpy
-    include_dirs = [pybind11.get_include(), numpy.get_include(), os.path.join('AimIO','include')]
-    # add n88util headers if provided as a submodule
-    n88_include = os.path.join(here, 'n88util', 'include')
-    if os.path.isdir(n88_include):
-        include_dirs.append(n88_include)
-except Exception:
-    include_dirs = [os.path.join('AimIO','include')]
+    import pybind11
 
-ext = Extension(
-    'py_aimio._aimio',
-    sources=gather_sources(),
-    include_dirs=include_dirs,
-    language='c++',
-    extra_compile_args=['-std=c++17'] if sys.platform != 'win32' else ['/std:c++17']
-)
+    return [
+        pybind11.get_include(),
+        numpy.get_include(),
+        str((AIMIO_ROOT / "include").relative_to(ROOT)),
+        str((N88UTIL_ROOT / "include").relative_to(ROOT)),
+    ]
 
-setup(
-    ext_modules=[ext],
-)
+
+ext_modules = [
+    Extension(
+        "py_aimio._aimio",
+        sources=gather_sources(),
+        include_dirs=gather_include_dirs(),
+        language="c++",
+        extra_compile_args=["-std=c++17"] if sys.platform != "win32" else ["/std:c++17"],
+    )
+]
+
+setup(ext_modules=ext_modules)
