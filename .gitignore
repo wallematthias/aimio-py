@@ -5,6 +5,7 @@ build/
 dist/
 wheelhouse/
 docs/build/
+build_support/generated_headers/
 *.egg-info/
 *.so
 *.pyd
