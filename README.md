@@ -1,12 +1,12 @@
-# py-aimio
+# aimio-py
 
 [![Coverage (CI)](https://img.shields.io/github/actions/workflow/status/wallematthias/aimio-py/tests.yml?label=coverage%20(ci))](https://github.com/wallematthias/aimio-py/actions/workflows/tests.yml)
 [![Wheel Build](https://img.shields.io/github/actions/workflow/status/wallematthias/aimio-py/build-wheels.yml?label=wheels)](https://github.com/wallematthias/aimio-py/actions/workflows/build-wheels.yml)
-[![PyPI](https://img.shields.io/pypi/v/py-aimio)](https://pypi.org/project/py-aimio/)
+[![PyPI](https://img.shields.io/pypi/v/aimio-py)](https://pypi.org/project/aimio-py/)
 
 Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) C++ library.
 
-`py-aimio` provides a small Python API to read and write AIM files as NumPy arrays, inspect metadata, and work with processing logs.
+`aimio-py` provides a small Python API to read and write AIM files as NumPy arrays, inspect metadata, and work with processing logs.
 
 ## Features
 
@@ -21,7 +21,7 @@ Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) 
 From PyPI (recommended):
 
 ```bash
-pip install py-aimio
+pip install aimio-py
 ```
 
 From source:

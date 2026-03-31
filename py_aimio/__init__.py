@@ -163,6 +163,6 @@ __all__ = [
 ]
 
 try:
-    __version__ = version("py-aimio")
+    __version__ = version("aimio-py")
 except PackageNotFoundError:
     __version__ = "0.0.0"

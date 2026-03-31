@@ -41,5 +41,5 @@
 1. Confirm package is visible on PyPI.
 2. Validate installation in a clean environment:
    ```bash
-   pip install py-aimio==0.1.0
+   pip install aimio-py==0.1.0
    ```
