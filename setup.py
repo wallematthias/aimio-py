@@ -94,16 +94,21 @@ def gather_include_dirs() -> list[str]:
 
     # Windows CI commonly installs Boost through vcpkg; include that path when present.
     if sys.platform == "win32":
-        vcpkg_root = Path(os.environ.get("VCPKG_ROOT", r"C:\vcpkg"))
-        vcpkg_include_candidates = [
-            vcpkg_root / "installed" / "x64-windows" / "include",
-            vcpkg_root / "installed" / "x86-windows" / "include",
-            vcpkg_root / "installed" / "arm64-windows" / "include",
-        ]
-        for candidate in vcpkg_include_candidates:
-            if candidate.is_dir():
-                include_dirs.append(str(candidate))
-                break
+        vcpkg_roots = []
+        for env_name in ("VCPKG_ROOT", "VCPKG_INSTALLATION_ROOT"):
+            value = os.environ.get(env_name)
+            if value:
+                vcpkg_roots.append(Path(value))
+        vcpkg_roots.extend([Path(r"C:\vcpkg"), Path(r"D:\vcpkg")])
+
+        for root in vcpkg_roots:
+            for triplet in ("x64-windows", "x86-windows", "arm64-windows"):
+                candidate = root / "installed" / triplet / "include"
+                if candidate.is_dir():
+                    include_dirs.append(str(candidate))
+
+    # Remove duplicates while preserving order.
+    include_dirs = list(dict.fromkeys(include_dirs))
     return include_dirs
 
 
