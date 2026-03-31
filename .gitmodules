@@ -1,6 +1,6 @@
 [submodule "AimIO"]
-	path = AimIO
+	path = external/AimIO
 	url = https://github.com/Numerics88/AimIO
 [submodule "n88util"]
-	path = n88util
+	path = external/n88util
 	url = https://github.com/Numerics88/n88util
