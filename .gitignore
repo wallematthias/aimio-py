@@ -14,4 +14,5 @@ build_support/generated_headers/
 *.dll
 *.dylib
 .DS_Store
+.github/agents/
 data/
