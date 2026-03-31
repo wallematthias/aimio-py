@@ -1,6 +1,18 @@
 # py-aimio (local)
 
-This repository provides packaging scaffolding to build Python bindings for the Numerics88 AimIO C++ library.
+
+This repository provides Python bindings for the [Numerics88 AimIO C++ library](https://github.com/Numerics88/AimIO) and uses [n88util](https://github.com/Numerics88/n88util) for utility functions. Please see those upstream repositories for the original C++ code, documentation, and license details.
+
+**Note:** This repo does not contain the full C++ sources. It is a Python packaging/shim layer. All C++ build artifacts (such as `_aimio.cpython-*.so`) are ignored and should not be committed.
+
+# Pre-built Wheels (Recommended)
+
+For most users, download the latest wheel for your platform from the [GitHub Releases page](https://github.com/wallematthias/aimio-py/releases) and install with pip:
+
+```
+pip install https://github.com/wallematthias/aimio-py/releases/download/<TAG>/<WHEEL_FILENAME>.whl
+```
+Replace `<TAG>` with the latest release tag (e.g., `v1.0.0`) and `<WHEEL_FILENAME>` with the correct file for your OS and Python version.
 
 Quickstart
 
