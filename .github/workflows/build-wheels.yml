@@ -10,111 +10,27 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_wheels_native:
+  build_wheels:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, macos-15-intel]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - os: ubuntu-latest
+            artifact: manylinux-x86_64
+            cibw_arch: x86_64
+          - os: windows-latest
+            artifact: windows-amd64
+            cibw_arch: AMD64
+          - os: macos-latest
+            artifact: macos-arm64
+            cibw_arch: arm64
+          - os: macos-15-intel
+            artifact: macos-x86_64
+            cibw_arch: x86_64
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          activate-environment: buildenv
-          python-version: ${{ matrix.python-version }}
-          channels: conda-forge
-          auto-activate-base: false
-
-      - name: Log Runner Architecture
-        shell: bash -l {0}
-        run: |
-          python - <<'PY'
-          import platform
-          print("platform.machine():", platform.machine())
-          PY
-
-      - name: Assert macOS ARM Runner
-        if: matrix.os == 'macos-latest'
-        shell: bash -l {0}
-        run: |
-          python - <<'PY'
-          import platform
-          arch = platform.machine().lower()
-          if arch != "arm64":
-              raise SystemExit(f"Expected arm64 on macos-latest, got: {arch}")
-          print("Verified macos-latest runner arch:", arch)
-          PY
-
-      - name: Install build dependencies
-        shell: bash -l {0}
-        run: |
-          conda install -y \
-            boost-cpp \
-            pybind11 \
-            numpy \
-            pip \
-            setuptools \
-            wheel
-          python -m pip install --upgrade build
-
-      - name: Build wheel
-        shell: bash -l {0}
-        run: |
-          python -m build --wheel --no-isolation
-
-      - name: Repair macOS wheel dylib links (delocate)
-        if: startsWith(matrix.os, 'macos')
-        shell: bash -l {0}
-        run: |
-          python -m pip install --upgrade delocate
-          mkdir -p wheelhouse
-          for whl in dist/*.whl; do
-            echo "Inspecting deps for $whl"
-            delocate-listdeps "$whl" || true
-            delocate-wheel -v -w wheelhouse "$whl"
-          done
-          rm -f dist/*.whl
-          mv wheelhouse/*.whl dist/
-          echo "Repaired wheel(s):"
-          ls -1 dist/*.whl
-
-      - name: Smoke test macOS wheel import
-        if: startsWith(matrix.os, 'macos')
-        shell: bash -l {0}
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install dist/*.whl
-          python - <<'PY'
-          import py_aimio._aimio as _ext
-          print("Loaded:", _ext.__file__)
-          PY
-
-      - name: Validate macOS Wheel Tag (arm64)
-        if: matrix.os == 'macos-latest'
-        shell: bash -l {0}
-        run: |
-          ls -1 dist/
-          ls dist/*.whl | grep -E 'macosx_.*_arm64\.whl$'
-
-      - name: Upload wheel artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-native-${{ matrix.os }}-${{ runner.arch }}-py${{ matrix.python-version }}
-          path: ./dist/*.whl
-
-  build_wheels_linux:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -124,28 +40,43 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install cibuildwheel
         run: |
           python -m pip install --upgrade pip cibuildwheel
 
-      - name: Build Linux wheels (manylinux)
+      - name: Build wheels (cibuildwheel)
         env:
-          CIBW_BUILD: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64"
-          CIBW_SKIP: "*-musllinux_*"
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_* *-manylinux_i686 *-win32"
+          CIBW_ARCHS: ${{ matrix.cibw_arch }}
+          CIBW_TEST_COMMAND: "python -c \"import py_aimio._aimio as _ext; print(_ext.__file__)\""
+          CIBW_BUILD_VERBOSITY: "1"
           CIBW_BEFORE_ALL_LINUX: >-
             if command -v yum >/dev/null 2>&1; then yum install -y boost-devel;
             elif command -v dnf >/dev/null 2>&1; then dnf install -y boost-devel;
             elif command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y libboost-all-dev;
             else echo 'No supported package manager found for Boost install' && exit 1; fi
+          CIBW_BEFORE_ALL_MACOS: >-
+            brew install boost
+          CIBW_ENVIRONMENT_MACOS: >-
+            CPPFLAGS="-I$(brew --prefix boost)/include"
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >-
+            python -m pip install delocate && delocate-wheel --require-archs {delocate_archs} -w {dest_dir} {wheel}
+          CIBW_BEFORE_ALL_WINDOWS: >-
+            if not exist C:\vcpkg git clone --depth 1 https://github.com/microsoft/vcpkg C:\vcpkg &&
+            C:\vcpkg\bootstrap-vcpkg.bat &&
+            C:\vcpkg\vcpkg.exe install boost-format:x64-windows
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            INCLUDE="C:\vcpkg\installed\x64-windows\include;%INCLUDE%"
         run: |
-          python -m cibuildwheel --platform linux --output-dir dist
+          python -m cibuildwheel --output-dir dist
 
-      - name: Upload Linux wheel artifacts
+      - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-manylinux-x86_64
+          name: wheels-${{ matrix.artifact }}
           path: ./dist/*.whl
 
   build_sdist:
@@ -175,7 +106,7 @@ jobs:
           path: ./dist/*.tar.gz
 
   publish:
-    needs: [build_wheels_native, build_wheels_linux, build_sdist]
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
