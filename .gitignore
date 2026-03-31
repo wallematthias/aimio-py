@@ -1,4 +1,6 @@
 __pycache__/
+*.pyc
+*.pyo
 .venv/
 .pytest_cache/
 build/
@@ -11,4 +13,5 @@ build_support/generated_headers/
 *.pyd
 *.dll
 *.dylib
+.DS_Store
 data/

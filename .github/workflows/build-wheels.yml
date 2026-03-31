@@ -37,7 +37,7 @@ jobs:
         shell: bash -l {0}
         run: |
           conda install -y \
-            boost \
+            boost-cpp \
             pybind11 \
             numpy \
             pip \

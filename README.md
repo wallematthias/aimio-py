@@ -1,5 +1,9 @@
 # py-aimio
 
+[![Coverage (CI)](https://img.shields.io/github/actions/workflow/status/wallematthias/aimio-py/tests.yml?label=coverage%20(ci))](https://github.com/wallematthias/aimio-py/actions/workflows/tests.yml)
+[![Wheel Build](https://img.shields.io/github/actions/workflow/status/wallematthias/aimio-py/build-wheels.yml?label=wheels)](https://github.com/wallematthias/aimio-py/actions/workflows/build-wheels.yml)
+[![PyPI](https://img.shields.io/pypi/v/py-aimio)](https://pypi.org/project/py-aimio/)
+
 Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) C++ library.
 
 `py-aimio` provides a small Python API to read and write AIM files as NumPy arrays, inspect metadata, and work with processing logs.
@@ -54,6 +58,12 @@ Run tests:
 
 ```bash
 pytest -q
+```
+
+Run tests with coverage:
+
+```bash
+pytest -q --cov=py_aimio --cov-report=term-missing --cov-report=xml:coverage.xml
 ```
 
 Build local artifacts:

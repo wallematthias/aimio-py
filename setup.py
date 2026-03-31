@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import sys
 
 from setuptools import Extension, setup
@@ -73,13 +74,24 @@ def gather_include_dirs() -> list[str]:
     import pybind11
 
     generated_headers = ensure_generated_export_headers()
-    return [
+    include_dirs = [
         generated_headers,
         pybind11.get_include(),
         numpy.get_include(),
         str((AIMIO_ROOT / "include").relative_to(ROOT)),
         str((N88UTIL_ROOT / "include").relative_to(ROOT)),
     ]
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        conda_include_candidates = [
+            Path(conda_prefix) / "include",
+            Path(conda_prefix) / "Include",
+            Path(conda_prefix) / "Library" / "include",
+        ]
+        for candidate in conda_include_candidates:
+            if candidate.is_dir():
+                include_dirs.append(str(candidate))
+    return include_dirs
 
 
 ext_modules = [
