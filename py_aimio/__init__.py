@@ -19,10 +19,9 @@ try:
 except Exception:
     _aimio = None
 
-from .calibration import (
-    get_aim_density_equation, get_aim_hu_equation,
-)
-from .header_log import logtodict, dicttolog
+
+from .calibration import get_aim_density_equation, get_aim_hu_equation
+from .header_log import log_to_dict, dict_to_log
 
 
 def _not_built():
@@ -59,7 +58,7 @@ def read_aim(path: str, density: bool = False, hu: bool = False) -> Tuple[np.nda
     # Convert processing_log to a dict for convenient in-Python editing.
     if isinstance(proc_log_raw, str) and proc_log_raw:
         try:
-            meta["processing_log"] = logtodict(proc_log_raw)
+            meta["processing_log"] = log_to_dict(proc_log_raw)
         except Exception:
             # leave as string if parsing fails
             pass
@@ -77,7 +76,7 @@ def read_aim(path: str, density: bool = False, hu: bool = False) -> Tuple[np.nda
     if isinstance(meta.get("processing_log"), str):
         meta["processing_log_raw"] = meta["processing_log"]
     elif isinstance(meta.get("processing_log"), dict):
-        meta["processing_log_raw"] = dicttolog(meta["processing_log"])
+        meta["processing_log_raw"] = dict_to_log(meta["processing_log"])
 
     return arr, meta
 
@@ -103,7 +102,7 @@ def write_aim(path: str, array, meta: dict = None, unit: str = None):
     proc_log = meta.get("processing_log", "")
     # If processing_log is a dict (editable), convert to string for conversions
     if isinstance(proc_log, dict):
-        proc_log_str = dicttolog(proc_log)
+        proc_log_str = dict_to_log(proc_log)
     else:
         proc_log_str = meta.get("processing_log_raw", proc_log)
     cur_unit = (unit or meta.get("unit", "native"))
@@ -126,38 +125,20 @@ def write_aim(path: str, array, meta: dict = None, unit: str = None):
     # Ensure processing_log is a string when passing to the low-level writer
     meta_out = dict(meta)
     if isinstance(meta_out.get("processing_log"), dict):
-        meta_out["processing_log"] = dicttolog(meta_out["processing_log"])
+        meta_out["processing_log"] = dict_to_log(meta_out["processing_log"])
 
     return _aimio.write_aim(path, arr_native, meta_out)
 
 
-def aim_to_sitk(file_path, scaling, write_mha=False):
-    """Lazy wrapper to avoid importing optional heavy deps at package import time."""
-    from .converters import aim_to_sitk as _aim_to_sitk
 
-    return _aim_to_sitk(file_path=file_path, scaling=scaling, write_mha=write_mha)
-
-
-def sitk_to_aim(file_path="", sitk_img=None, write_aim=False, output_path=""):
-    """Lazy wrapper to avoid importing optional heavy deps at package import time."""
-    from .converters import sitk_to_aim as _sitk_to_aim
-
-    return _sitk_to_aim(
-        file_path=file_path,
-        sitk_img=sitk_img,
-        write_aim=write_aim,
-        output_path=output_path,
-    )
 
 
 __all__ = [
     "aim_info",
     "read_aim",
     "write_aim",
-    "aim_to_sitk",
-    "sitk_to_aim",
-    "logtodict",
-    "dicttolog",
+    "log_to_dict",
+    "dict_to_log",
     "get_aim_density_equation",
     "get_aim_hu_equation",
 ]

@@ -1,7 +1,11 @@
-"""Calibration helpers for converting AIM native values.
-
-These utilities parse AIM processing logs and return linear conversion
 equations for HU and density spaces.
+
+"""
+Calibration helpers for converting AIM native values.
+
+These utilities parse AIM processing logs and return linear conversion equations for HU and density spaces.
+
+Adapted from Bonelab/Bonelab (https://github.com/Bonelab/Bonelab/)
 """
 
 import re

@@ -1,7 +1,23 @@
 # py-aimio (local)
 
+## Attribution
+
+- `py_aimio/calibration.py` and `py_aimio/converters.py` are adapted from [Bonelab/Bonelab](https://github.com/Bonelab/Bonelab/).
+- `py_aimio/header_log.py` is by Matthias Walle.
+
+
+
 
 This repository provides Python bindings for the [Numerics88 AimIO C++ library](https://github.com/Numerics88/AimIO) and uses [n88util](https://github.com/Numerics88/n88util) for utility functions. Please see those upstream repositories for the original C++ code, documentation, and license details.
+
+**Why (local)?**
+
+This is a local, developer-focused version of py-aimio. It is intended for:
+- Testing and development before public release or PyPI upload
+- Environments where you want to build from source, modify, or debug the bindings
+- Users who need to integrate with unreleased or custom versions of AimIO/n88util
+
+For most users, the recommended way is to use the pre-built wheels from the [GitHub Releases page](https://github.com/wallematthias/aimio-py/releases) for easy installation.
 
 **Note:** This repo does not contain the full C++ sources. It is a Python packaging/shim layer. All C++ build artifacts (such as `_aimio.cpython-*.so`) are ignored and should not be committed.
 
@@ -18,37 +34,41 @@ Quickstart
 
 1. Add AimIO as a git submodule inside this folder:
 
+# py-aimio
+
+Minimal Python bindings for the Numerics88 AIM file format (micro-CT image IO).
+
+- Pure Python + pybind11, minimal dependencies
+- Read/write AIM files as numpy arrays
+- Extract and edit AIM metadata
+- MIT License
+
+## Installation
+
 ```sh
-cd active/aimio-py
-git submodule add https://github.com/Numerics88/AimIO AimIO
-git submodule update --init --recursive
+pip install py-aimio
 ```
 
-2. Build/install locally (recommended in a virtualenv):
+## Usage
 
-```sh
-2. Build/install locally (recommended in a conda environment):
+```python
+from py_aimio import read_aim, write_aim
 
-```bash
-cd active/aimio-py
-# add AimIO submodule if not already added
-git submodule add https://github.com/Numerics88/AimIO AimIO || true
-git submodule update --init --recursive
-
-# create conda env and install deps (conda-forge)
-conda create -n aimio-build -c conda-forge python=3.11 boost pybind11 numpy pip build setuptools wheel cmake -y
-conda activate aimio-build
-
-# build and install editable
-pip install -U pip
-pip install -e .
+arr, meta = read_aim('scan.aim')
+# ... process arr ...
+write_aim('out.aim', arr, meta)
 ```
 
-pip install -U pip setuptools wheel
-pip install -e .
-```
+## API
+- `read_aim(path, density=False, hu=False) -> (array, meta)`
+- `write_aim(path, array, meta=None, unit=None)`
+- `aim_info(path)`
+- `get_aim_density_equation(processing_log)`
+- `get_aim_hu_equation(processing_log)`
+- `log_to_dict(log)` / `dict_to_log(dict)`
 
-Notes
-- The build uses pybind11 and numpy at build time. They are declared in `pyproject.toml`.
-- The C++ sources from AimIO will be discovered under `AimIO/source` and headers under `AimIO/include`.
-- `bindings/aimio_bindings.cpp` is a minimal placeholder; extend it to wrap useful AimIO APIs.
+## License
+MIT
+
+---
+For advanced usage, see the full documentation or source code.

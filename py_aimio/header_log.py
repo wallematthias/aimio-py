@@ -1,4 +1,9 @@
-"""Formatting helpers for AIM processing logs."""
+
+"""
+Formatting helpers for AIM processing logs.
+
+By Matthias Walle.
+"""
 
 import re
 
@@ -15,7 +20,7 @@ def _maybe_number(value):
     return value
 
 
-def logtodict(log):
+def log_to_dict(log):
     """Convert a formatted AIM log string into a dictionary."""
     lines = log.split("\n")
     log_dict = {}
@@ -40,7 +45,7 @@ def logtodict(log):
     return log_dict
 
 
-def dicttolog(log_dict):
+def dict_to_log(log_dict):
     """Convert a log dictionary into the formatted AIM log string format."""
     log = "! Processing Log\n!\n!-------------------------------------------------------------------------------\n"
     split_line = "!-------------------------------------------------------------------------------\n"
