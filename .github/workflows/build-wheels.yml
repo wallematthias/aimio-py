@@ -46,6 +46,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip cibuildwheel
 
+      - name: Cache vcpkg artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\vcpkg\downloads
+            C:\vcpkg\buildtrees
+            C:\vcpkg\packages
+            C:\vcpkg\installed
+            C:\vcpkg\bincache
+          key: ${{ runner.os }}-vcpkg-boost-x64-v1-${{ hashFiles('.github/workflows/build-wheels.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-boost-x64-v1-
+
       - name: Build wheels (cibuildwheel)
         env:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
@@ -68,6 +82,7 @@ jobs:
             powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; if (-not (Test-Path 'C:\vcpkg')) { git clone --depth 1 https://github.com/microsoft/vcpkg C:\vcpkg }; & C:\vcpkg\bootstrap-vcpkg.bat; & C:\vcpkg\vcpkg.exe install boost:x64-windows"
           CIBW_ENVIRONMENT_WINDOWS: >-
             VCPKG_ROOT=C:\vcpkg
+            VCPKG_DEFAULT_BINARY_CACHE=C:\vcpkg\bincache
           CIBW_BEFORE_BUILD_WINDOWS: >-
             powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; Write-Host \"VCPKG_ROOT=$env:VCPKG_ROOT\"; if (-not (Test-Path \"$env:VCPKG_ROOT\\installed\\x64-windows\\include\\boost\\format.hpp\")) { throw 'boost/format.hpp not found under VCPKG_ROOT' }; if (-not (Test-Path \"$env:VCPKG_ROOT\\installed\\x64-windows\\include\\boost\\endian\\conversion.hpp\")) { throw 'boost/endian/conversion.hpp not found under VCPKG_ROOT' }"
         run: |
