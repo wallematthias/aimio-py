@@ -28,8 +28,8 @@
 1. Commit all release changes to `main`.
 2. Create and push a version tag:
    ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag v0.1.1
+   git push origin v0.1.1
    ```
 3. Monitor `.github/workflows/build-wheels.yml` for:
    - wheel build on Linux/macOS/Windows
@@ -41,5 +41,5 @@
 1. Confirm package is visible on PyPI.
 2. Validate installation in a clean environment:
    ```bash
-   pip install aimio-py==0.1.0
+   pip install aimio-py==0.1.1
    ```

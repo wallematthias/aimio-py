@@ -10,7 +10,7 @@ Pre-release checklist:
 
 Release:
 
-1. Tag and push a release, for example ``v0.1.0``.
+1. Tag and push a release, for example ``v0.1.1``.
 2. GitHub Actions builds wheels/sdist and publishes on tag pushes.
 
 For the full workflow details, see ``docs/PUBLISHING.md`` in the repository.
