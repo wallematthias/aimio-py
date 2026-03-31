@@ -15,6 +15,7 @@ jobs:
     permissions:
       contents: read
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-13, macos-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
@@ -33,6 +34,38 @@ jobs:
           channels: conda-forge
           auto-activate-base: false
 
+      - name: Log Runner Architecture
+        shell: bash -l {0}
+        run: |
+          python - <<'PY'
+          import platform
+          print("platform.machine():", platform.machine())
+          PY
+
+      - name: Assert macOS Intel Runner
+        if: matrix.os == 'macos-13'
+        shell: bash -l {0}
+        run: |
+          python - <<'PY'
+          import platform
+          arch = platform.machine().lower()
+          if arch != "x86_64":
+              raise SystemExit(f"Expected x86_64 on macos-13, got: {arch}")
+          print("Verified macos-13 runner arch:", arch)
+          PY
+
+      - name: Assert macOS ARM Runner
+        if: matrix.os == 'macos-latest'
+        shell: bash -l {0}
+        run: |
+          python - <<'PY'
+          import platform
+          arch = platform.machine().lower()
+          if arch != "arm64":
+              raise SystemExit(f"Expected arm64 on macos-latest, got: {arch}")
+          print("Verified macos-latest runner arch:", arch)
+          PY
+
       - name: Install build dependencies
         shell: bash -l {0}
         run: |
@@ -49,6 +82,20 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m build --wheel --no-isolation
+
+      - name: Validate macOS Wheel Tag (x86_64)
+        if: matrix.os == 'macos-13'
+        shell: bash -l {0}
+        run: |
+          ls -1 dist/
+          ls dist/*.whl | grep -E 'macosx_.*_x86_64\.whl$'
+
+      - name: Validate macOS Wheel Tag (arm64)
+        if: matrix.os == 'macos-latest'
+        shell: bash -l {0}
+        run: |
+          ls -1 dist/
+          ls dist/*.whl | grep -E 'macosx_.*_arm64\.whl$'
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
