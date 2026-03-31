@@ -81,10 +81,10 @@ jobs:
           CIBW_BEFORE_ALL_WINDOWS: >-
             powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; if (-not (Test-Path 'C:\vcpkg')) { git clone --depth 1 https://github.com/microsoft/vcpkg C:\vcpkg }; & C:\vcpkg\bootstrap-vcpkg.bat; & C:\vcpkg\vcpkg.exe install boost:x64-windows"
           CIBW_ENVIRONMENT_WINDOWS: >-
-            VCPKG_ROOT=C:\vcpkg
-            VCPKG_DEFAULT_BINARY_CACHE=C:\vcpkg\bincache
+            VCPKG_ROOT=C:/vcpkg
+            VCPKG_DEFAULT_BINARY_CACHE=C:/vcpkg/bincache
           CIBW_BEFORE_BUILD_WINDOWS: >-
-            powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; Write-Host \"VCPKG_ROOT=$env:VCPKG_ROOT\"; if (-not (Test-Path \"$env:VCPKG_ROOT\\installed\\x64-windows\\include\\boost\\format.hpp\")) { throw 'boost/format.hpp not found under VCPKG_ROOT' }; if (-not (Test-Path \"$env:VCPKG_ROOT\\installed\\x64-windows\\include\\boost\\endian\\conversion.hpp\")) { throw 'boost/endian/conversion.hpp not found under VCPKG_ROOT' }"
+            powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; Write-Host \"VCPKG_ROOT=$env:VCPKG_ROOT\"; $boostInclude = Join-Path $env:VCPKG_ROOT 'installed/x64-windows/include/boost'; if (-not (Test-Path (Join-Path $boostInclude 'format.hpp'))) { throw 'boost/format.hpp not found under VCPKG_ROOT' }; if (-not (Test-Path (Join-Path $boostInclude 'endian/conversion.hpp'))) { throw 'boost/endian/conversion.hpp not found under VCPKG_ROOT' }"
         run: |
           python -m cibuildwheel --output-dir dist
 
