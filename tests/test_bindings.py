@@ -42,3 +42,20 @@ def test_roundtrip(tmp_path):
     for key in ("dimensions", "buffer_type", "element_size"):
         if key in meta:
             assert meta2.get(key) == meta.get(key)
+
+
+def test_write_preserves_position_and_offset_metadata(tmp_path):
+    arr = np.zeros((4, 5, 6), dtype=np.int16)
+    meta = {
+        "element_size": (0.061, 0.062, 0.063),
+        "position": (930, 702, 11),
+        "offset": (1, 2, 3),
+    }
+
+    out = tmp_path / "positioned.AIM"
+    write_aim(str(out), arr, meta)
+    _arr2, meta2 = read_aim(str(out))
+
+    assert meta2["dimensions"] == (6, 5, 4)
+    assert meta2["position"] == meta["position"]
+    assert meta2["offset"] == meta["offset"]

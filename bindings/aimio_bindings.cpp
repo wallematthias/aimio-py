@@ -86,6 +86,14 @@ PYBIND11_MODULE(_aimio, m) {
             auto es = meta["element_size"].cast<std::vector<double>>();
             af.element_size[0] = es[0]; af.element_size[1] = es[1]; af.element_size[2] = es[2];
         }
+        if (meta.contains("position")) {
+            auto pos = meta["position"].cast<std::vector<int>>();
+            af.position[0] = pos[0]; af.position[1] = pos[1]; af.position[2] = pos[2];
+        }
+        if (meta.contains("offset")) {
+            auto off = meta["offset"].cast<std::vector<int>>();
+            af.offset[0] = off[0]; af.offset[1] = off[1]; af.offset[2] = off[2];
+        }
         if (meta.contains("processing_log")) {
             // ensure we set the processing log so it is written back into the AIM header
             if (py::isinstance<py::str>(meta["processing_log"])) {
