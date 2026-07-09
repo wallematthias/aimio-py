@@ -16,3 +16,5 @@ build_support/generated_headers/
 .DS_Store
 .github/agents/
 data/
+!tests/data/
+!tests/data/**

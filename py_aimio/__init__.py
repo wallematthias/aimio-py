@@ -20,7 +20,13 @@ except Exception:
     _aimio = None
 
 
-from .calibration import get_aim_density_equation, get_aim_hu_equation
+from .calibration import (
+    decode_scanco_double,
+    get_aim_density_equation,
+    get_aim_hu_equation,
+    get_isq_density_equation,
+    get_isq_hu_equation,
+)
 from .header_log import log_to_dict, dict_to_log
 
 
@@ -29,6 +35,45 @@ def _not_built():
         "AimIO extension not built. Ensure submodules are initialized "
         "(`git submodule update --init --recursive`) and run `pip install -e .`."
     )
+
+
+def _strip_null_padded_ascii(data: bytes) -> str:
+    return data.split(b"\0", 1)[0].decode("ascii", errors="ignore").strip()
+
+
+def _read_isq_calibration_metadata(path: str, data_offset: int) -> dict:
+    if data_offset <= 512:
+        return {}
+
+    with open(path, "rb") as handle:
+        header = handle.read(data_offset)
+
+    calibration_title = b"Calibration"
+    title_at = header.find(calibration_title, 512)
+    if title_at < 0:
+        return {}
+
+    calibration_start = title_at - 8
+    if calibration_start < 0 or calibration_start + 1208 > len(header):
+        return {}
+
+    try:
+        return {
+            "rescale_type": int.from_bytes(header[calibration_start + 1148 : calibration_start + 1152], "little"),
+            "rescale_units": _strip_null_padded_ascii(header[calibration_start + 1160 : calibration_start + 1176]),
+            "rescale_slope": decode_scanco_double(header[calibration_start + 1176 : calibration_start + 1184]),
+            "rescale_intercept": decode_scanco_double(header[calibration_start + 1184 : calibration_start + 1192]),
+            "mu_water": decode_scanco_double(header[calibration_start + 1200 : calibration_start + 1208]),
+        }
+    except Exception:
+        return {}
+
+
+def _augment_isq_meta(path: str, meta: dict) -> dict:
+    meta = dict(meta)
+    data_offset = int(meta.get("data_offset", 0) or 0)
+    meta.update(_read_isq_calibration_metadata(path, data_offset))
+    return meta
 
 
 def aim_info(path: str):
@@ -54,7 +99,8 @@ def isq_info(path: str):
     """
     if _aimio is None:
         _not_built()
-    return _aimio.isq_info(path)
+    meta = _aimio.isq_info(path)
+    return _augment_isq_meta(path, meta)
 
 
 def read_aim(path: str, density: bool = False, hu: bool = False) -> Tuple[np.ndarray, dict]:
@@ -109,8 +155,12 @@ def read_aim(path: str, density: bool = False, hu: bool = False) -> Tuple[np.nda
     return arr, meta
 
 
-def read_isq(path: str) -> Tuple[np.ndarray, dict]:
-    """Read an ISQ file as native signed 16-bit data.
+def read_isq(path: str, unit: str = "native") -> Tuple[np.ndarray, dict]:
+    """Read an ISQ file and optionally convert native values to HU or BMD.
+
+    Parameters:
+        path: ISQ file path
+        unit: one of ``"native"``, ``"hu"``, ``"density"``, or ``"bmd"``
 
     Returns:
         (array, meta) where array is a numpy ndarray with shape (z, y, x)
@@ -118,7 +168,28 @@ def read_isq(path: str) -> Tuple[np.ndarray, dict]:
     """
     if _aimio is None:
         _not_built()
-    return _aimio.read_isq(path)
+
+    unit_normalized = unit.lower()
+    if unit_normalized not in {"native", "hu", "density", "bmd"}:
+        raise ValueError("unit must be one of: 'native', 'hu', 'density', or 'bmd'")
+
+    arr, meta = _aimio.read_isq(path)
+    meta = _augment_isq_meta(path, meta)
+
+    if unit_normalized == "native":
+        meta["unit"] = "native"
+        return arr, meta
+
+    if unit_normalized == "hu":
+        m, b = get_isq_hu_equation(meta)
+        arr = arr.astype(float) * m + b
+        meta["unit"] = "HU"
+        return arr, meta
+
+    m, b = get_isq_density_equation(meta)
+    arr = arr.astype(float) * m + b
+    meta["unit"] = "BMD"
+    return arr, meta
 
 
 def write_aim(path: str, array, meta: dict = None, unit: str = None):
@@ -187,6 +258,8 @@ __all__ = [
     "dict_to_log",
     "get_aim_density_equation",
     "get_aim_hu_equation",
+    "get_isq_density_equation",
+    "get_isq_hu_equation",
 ]
 
 try:

@@ -56,6 +56,9 @@ print("Voxel spacing:", info["spacing"])
 
 array, meta = read_isq("scan.ISQ")
 print(array.shape, array.dtype)  # (z, y, x), int16
+
+hu_array, hu_meta = read_isq("scan.ISQ", unit="hu")
+bmd_array, bmd_meta = read_isq("scan.ISQ", unit="density")
 ```
 
 ## API
@@ -63,12 +66,16 @@ print(array.shape, array.dtype)  # (z, y, x), int16
 - `aim_info(path)`
 - `isq_info(path)`
 - `read_aim(path, density=False, hu=False) -> (array, meta)`
-- `read_isq(path) -> (array, meta)`
+- `read_isq(path, unit="native") -> (array, meta)`
 - `write_aim(path, array, meta=None, unit=None)`
 - `get_aim_density_equation(processing_log)`
 - `get_aim_hu_equation(processing_log)`
 - `log_to_dict(log)`
 - `dict_to_log(dct)`
+
+For ISQ files, `unit="native"` returns stored scanner values. `unit="hu"` and
+`unit="density"`/`unit="bmd"` use calibration metadata from the ISQ extended
+header when present.
 
 ## Development
 

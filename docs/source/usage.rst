@@ -19,6 +19,8 @@ Minimal read/write example
    write_aim("copy.AIM", arr, meta)
 
    isq_arr, isq_meta = read_isq("scan.ISQ")
+   isq_hu, _ = read_isq("scan.ISQ", unit="hu")
+   isq_bmd, _ = read_isq("scan.ISQ", unit="density")
 
 Metadata-only example
 ---------------------
@@ -38,7 +40,8 @@ Density/HU conversion example
 
 .. code-block:: python
 
-   from py_aimio import read_aim
+   from py_aimio import read_aim, read_isq
 
    density_arr, _ = read_aim("scan.AIM", density=True)
    hu_arr, _ = read_aim("scan.AIM", hu=True)
+   isq_hu_arr, _ = read_isq("scan.ISQ", unit="hu")
