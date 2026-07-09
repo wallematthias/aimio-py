@@ -30,6 +30,9 @@ from .calibration import (
 from .header_log import log_to_dict, dict_to_log
 
 
+IDENTITY_DIRECTION_3D = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+
+
 def _not_built():
     raise RuntimeError(
         "AimIO extension not built. Ensure submodules are initialized "
@@ -73,6 +76,29 @@ def _augment_isq_meta(path: str, meta: dict) -> dict:
     meta = dict(meta)
     data_offset = int(meta.get("data_offset", 0) or 0)
     meta.update(_read_isq_calibration_metadata(path, data_offset))
+    meta = _augment_sitk_geometry_meta(meta)
+    return meta
+
+
+def _augment_sitk_geometry_meta(meta: dict) -> dict:
+    meta = dict(meta)
+    if "spacing" not in meta and "element_size" in meta:
+        meta["spacing"] = tuple(meta["element_size"])
+    if "origin" not in meta:
+        position = meta.get("position")
+        spacing = meta.get("spacing")
+        if isinstance(position, (list, tuple)) and len(position) == 3 and isinstance(spacing, (list, tuple)) and len(spacing) == 3:
+            offset = meta.get("offset", (0.0, 0.0, 0.0))
+            if not (isinstance(offset, (list, tuple)) and len(offset) == 3):
+                offset = (0.0, 0.0, 0.0)
+            meta["origin"] = tuple(
+                (float(position[i]) + float(offset[i]) + 0.5) * float(spacing[i])
+                for i in range(3)
+            )
+        else:
+            meta["origin"] = (0.0, 0.0, 0.0)
+    if "direction" not in meta:
+        meta["direction"] = IDENTITY_DIRECTION_3D
     return meta
 
 
@@ -86,7 +112,7 @@ def aim_info(path: str):
     """
     if _aimio is None:
         _not_built()
-    return _aimio.aim_info(path)
+    return _augment_sitk_geometry_meta(_aimio.aim_info(path))
 
 
 def isq_info(path: str):
@@ -125,6 +151,7 @@ def read_aim(path: str, density: bool = False, hu: bool = False) -> Tuple[np.nda
         raise ValueError("Use only one conversion option: density=True or hu=True")
 
     arr, meta = _aimio.read_aim(path)
+    meta = _augment_sitk_geometry_meta(meta)
 
     # Keep an unmodified string copy for numeric conversions.
     proc_log_raw = meta.get("processing_log", "")

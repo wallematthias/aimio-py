@@ -16,11 +16,35 @@ class DummyAimio:
         self.last_write = None
 
     def aim_info(self, path):
-        return {"path": path, "dimensions": (2, 2, 2)}
+        return {
+            "path": path,
+            "dimensions": (2, 2, 2),
+            "position": (10, 20, 30),
+            "element_size": (0.082, 0.083, 0.084),
+        }
 
     def read_aim(self, _path):
         arr = np.array([[[0, 1000]]], dtype=np.int16)
-        return arr, {"processing_log": PROCESSING_LOG}
+        return arr, {
+            "processing_log": PROCESSING_LOG,
+            "position": (10, 20, 30),
+            "element_size": (0.082, 0.083, 0.084),
+        }
+
+    def isq_info(self, path):
+        return {
+            "path": path,
+            "dimensions": (2, 2, 2),
+            "spacing": (0.06, 0.06, 0.06),
+            "data_offset": 512,
+        }
+
+    def read_isq(self, _path):
+        arr = np.array([[[0, 1]]], dtype=np.int16)
+        return arr, {
+            "spacing": (0.06, 0.06, 0.06),
+            "data_offset": 512,
+        }
 
     def write_aim(self, path, arr, meta):
         self.last_write = (path, arr, meta)
@@ -32,6 +56,14 @@ def test_aim_info_calls_backend(monkeypatch):
     monkeypatch.setattr(api, "_aimio", backend)
     info = api.aim_info("x.AIM")
     assert info["path"] == "x.AIM"
+
+
+def test_aim_info_adds_sitk_geometry_keys(monkeypatch):
+    monkeypatch.setattr(api, "_aimio", DummyAimio())
+    info = api.aim_info("x.AIM")
+    assert np.allclose(info["origin"], (0.861, 1.7015, 2.562))
+    assert info["spacing"] == (0.082, 0.083, 0.084)
+    assert info["direction"] == api.IDENTITY_DIRECTION_3D
 
 
 def test_not_built_paths_raise(monkeypatch):
@@ -57,6 +89,18 @@ def test_read_aim_density_conversion(monkeypatch):
     assert meta["unit"] == "BMD"
     assert isinstance(meta["processing_log"], dict)
     assert isinstance(meta["processing_log_raw"], str)
+    assert np.allclose(meta["origin"], (0.861, 1.7015, 2.562))
+    assert meta["spacing"] == (0.082, 0.083, 0.084)
+    assert meta["direction"] == api.IDENTITY_DIRECTION_3D
+
+
+def test_read_isq_adds_sitk_geometry_keys(monkeypatch):
+    monkeypatch.setattr(api, "_aimio", DummyAimio())
+    arr, meta = api.read_isq("x.ISQ")
+    assert np.array_equal(arr, np.array([[[0, 1]]], dtype=np.int16))
+    assert meta["origin"] == (0.0, 0.0, 0.0)
+    assert meta["spacing"] == (0.06, 0.06, 0.06)
+    assert meta["direction"] == api.IDENTITY_DIRECTION_3D
 
 
 def test_read_aim_hu_conversion(monkeypatch):

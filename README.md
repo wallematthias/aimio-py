@@ -40,6 +40,7 @@ pip install -e .
 from py_aimio import read_aim, read_isq, write_aim
 
 array, meta = read_aim("scan.AIM")
+print(meta["origin"], meta["spacing"], meta["direction"])
 write_aim("copy.AIM", array, meta)
 
 isq_array, isq_meta = read_isq("scan.ISQ")
@@ -76,6 +77,14 @@ bmd_array, bmd_meta = read_isq("scan.ISQ", unit="density")
 For ISQ files, `unit="native"` returns stored scanner values. `unit="hu"` and
 `unit="density"`/`unit="bmd"` use calibration metadata from the ISQ extended
 header when present.
+
+Read metadata includes SimpleITK-style geometry keys for both AIM and ISQ:
+`origin`, `spacing`, and `direction`. For AIM, `spacing` is copied from
+`element_size` and `origin` follows the legacy vtkbone convention:
+`(position + offset + 0.5) * spacing`. For ISQ, `spacing` comes from the ISQ
+header and `origin` defaults to `(0.0, 0.0, 0.0)`. `direction` currently defaults
+to the 3D identity direction, matching the practical behavior observed from
+ITKIOScanco for ISQ files without explicit orientation metadata.
 
 ## Development
 
