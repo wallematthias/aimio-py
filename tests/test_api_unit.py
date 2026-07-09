@@ -61,7 +61,8 @@ def test_aim_info_calls_backend(monkeypatch):
 def test_aim_info_adds_sitk_geometry_keys(monkeypatch):
     monkeypatch.setattr(api, "_aimio", DummyAimio())
     info = api.aim_info("x.AIM")
-    assert np.allclose(info["origin"], (0.861, 1.7015, 2.562))
+    assert np.allclose(info["origin"], (0.82, 1.66, 2.52))
+    assert np.allclose(info["vtkbone_origin"], (0.861, 1.7015, 2.562))
     assert info["spacing"] == (0.082, 0.083, 0.084)
     assert info["direction"] == api.IDENTITY_DIRECTION_3D
 
@@ -89,7 +90,8 @@ def test_read_aim_density_conversion(monkeypatch):
     assert meta["unit"] == "BMD"
     assert isinstance(meta["processing_log"], dict)
     assert isinstance(meta["processing_log_raw"], str)
-    assert np.allclose(meta["origin"], (0.861, 1.7015, 2.562))
+    assert np.allclose(meta["origin"], (0.82, 1.66, 2.52))
+    assert np.allclose(meta["vtkbone_origin"], (0.861, 1.7015, 2.562))
     assert meta["spacing"] == (0.082, 0.083, 0.084)
     assert meta["direction"] == api.IDENTITY_DIRECTION_3D
 

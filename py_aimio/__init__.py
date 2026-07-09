@@ -92,6 +92,10 @@ def _augment_sitk_geometry_meta(meta: dict) -> dict:
             if not (isinstance(offset, (list, tuple)) and len(offset) == 3):
                 offset = (0.0, 0.0, 0.0)
             meta["origin"] = tuple(
+                (float(position[i]) + float(offset[i])) * float(spacing[i])
+                for i in range(3)
+            )
+            meta["vtkbone_origin"] = tuple(
                 (float(position[i]) + float(offset[i]) + 0.5) * float(spacing[i])
                 for i in range(3)
             )

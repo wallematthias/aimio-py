@@ -80,8 +80,9 @@ header when present.
 
 Read metadata includes SimpleITK-style geometry keys for both AIM and ISQ:
 `origin`, `spacing`, and `direction`. For AIM, `spacing` is copied from
-`element_size` and `origin` follows the legacy vtkbone convention:
-`(position + offset + 0.5) * spacing`. For ISQ, `spacing` comes from the ISQ
+`element_size` and `origin` follows the ITKIOScanco-compatible convention:
+`(position + offset) * spacing`. The older vtkbone-style half-voxel-shifted
+origin is also exposed as `vtkbone_origin`. For ISQ, `spacing` comes from the ISQ
 header and `origin` defaults to `(0.0, 0.0, 0.0)`. `direction` currently defaults
 to the 3D identity direction, matching the practical behavior observed from
 ITKIOScanco for ISQ files without explicit orientation metadata.
