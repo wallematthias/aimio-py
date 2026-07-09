@@ -44,6 +44,19 @@ def aim_info(path: str):
     return _aimio.aim_info(path)
 
 
+def isq_info(path: str):
+    """Read ISQ header metadata without loading full image data.
+
+    Example:
+        >>> meta = isq_info("scan.ISQ")
+        >>> tuple(meta["dimensions"])
+        (2304, 2304, 168)
+    """
+    if _aimio is None:
+        _not_built()
+    return _aimio.isq_info(path)
+
+
 def read_aim(path: str, density: bool = False, hu: bool = False) -> Tuple[np.ndarray, dict]:
     """Read an AIM file and optionally convert to density or HU units.
 
@@ -94,6 +107,18 @@ def read_aim(path: str, density: bool = False, hu: bool = False) -> Tuple[np.nda
         meta["processing_log_raw"] = dict_to_log(meta["processing_log"])
 
     return arr, meta
+
+
+def read_isq(path: str) -> Tuple[np.ndarray, dict]:
+    """Read an ISQ file as native signed 16-bit data.
+
+    Returns:
+        (array, meta) where array is a numpy ndarray with shape (z, y, x)
+        and meta is the ISQ header dict.
+    """
+    if _aimio is None:
+        _not_built()
+    return _aimio.read_isq(path)
 
 
 def write_aim(path: str, array, meta: dict = None, unit: str = None):
@@ -154,7 +179,9 @@ def write_aim(path: str, array, meta: dict = None, unit: str = None):
 
 __all__ = [
     "aim_info",
+    "isq_info",
     "read_aim",
+    "read_isq",
     "write_aim",
     "log_to_dict",
     "dict_to_log",

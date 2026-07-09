@@ -2,11 +2,13 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #include <string>
+#include <vector>
 
 namespace py = pybind11;
 
 // If AimIO headers are available (when the AimIO submodule is added), include them.
 #include "AimIO/AimIO.h"
+#include "AimIO/IsqIO.h"
 
 static py::dict aimfile_to_dict(const AimIO::AimFile &af) {
     py::dict d;
@@ -25,8 +27,48 @@ static py::dict aimfile_to_dict(const AimIO::AimFile &af) {
     return d;
 }
 
+static py::dict isqfile_to_dict(const AimIO::IsqFile &isq) {
+    py::dict d;
+    d["filename"] = isq.filename;
+    d["version"] = static_cast<int>(isq.version);
+    d["data_type"] = isq.data_type;
+    d["nr_of_bytes"] = isq.nr_of_bytes;
+    d["nr_of_blocks"] = isq.nr_of_blocks;
+    d["patient_index"] = isq.patient_index;
+    d["scanner_id"] = isq.scanner_id;
+    d["creation_date"] = py::make_tuple(isq.creation_date[0], isq.creation_date[1]);
+    d["dimensions"] = py::make_tuple(isq.dimensions_p[0], isq.dimensions_p[1], isq.dimensions_p[2]);
+    d["dimensions_p"] = py::make_tuple(isq.dimensions_p[0], isq.dimensions_p[1], isq.dimensions_p[2]);
+    d["dimensions_um"] = py::make_tuple(isq.dimensions_um[0], isq.dimensions_um[1], isq.dimensions_um[2]);
+    d["offset"] = py::make_tuple(isq.offset[0], isq.offset[1], isq.offset[2]);
+    d["spacing"] = py::make_tuple(isq.spacing[0], isq.spacing[1], isq.spacing[2]);
+    d["creation_date_string"] = isq.creation_date_string;
+    d["slice_thickness_um"] = isq.slice_thickness_um;
+    d["slice_increment_um"] = isq.slice_increment_um;
+    d["slice_1_pos_um"] = isq.slice_1_pos_um;
+    d["min_data_value"] = isq.min_data_value;
+    d["max_data_value"] = isq.max_data_value;
+    d["mu_scaling"] = isq.mu_scaling;
+    d["nr_of_samples"] = isq.nr_of_samples;
+    d["nr_of_projections"] = isq.nr_of_projections;
+    d["scandist_um"] = isq.scandist_um;
+    d["scanner_type"] = isq.scanner_type;
+    d["sampletime_us"] = isq.sampletime_us;
+    d["index_measurement"] = isq.index_measurement;
+    d["site"] = isq.site;
+    d["reference_line_um"] = isq.reference_line_um;
+    d["recon_alg"] = isq.recon_alg;
+    d["name"] = isq.name;
+    d["energy"] = isq.energy;
+    d["intensity"] = isq.intensity;
+    d["holder"] = isq.holder;
+    d["data_offset"] = isq.data_offset;
+    d["buffer_type"] = static_cast<int>(isq.buffer_type);
+    return d;
+}
+
 PYBIND11_MODULE(_aimio, m) {
-    m.doc() = "AimIO C++ bindings: read_aim(path) -> (ndarray, meta), write_aim(path, array, meta), aim_info(path) -> meta";
+    m.doc() = "AimIO C++ bindings for AIM and ISQ image metadata/data.";
 
     m.def("aim_info", [](const std::string &path) {
         AimIO::AimFile af(path.c_str());
@@ -73,7 +115,6 @@ PYBIND11_MODULE(_aimio, m) {
         int nz = static_cast<int>(info.shape[0]);
         int ny = static_cast<int>(info.shape[1]);
         int nx = static_cast<int>(info.shape[2]);
-        size_t n = static_cast<size_t>(nx) * ny * nz;
 
         AimIO::AimFile af;
         af.filename = path;
@@ -114,4 +155,24 @@ PYBIND11_MODULE(_aimio, m) {
 
         return aimfile_to_dict(af);
     }, py::arg("path"), py::arg("array"), py::arg("meta") = py::dict());
+
+    m.def("isq_info", [](const std::string &path) {
+        AimIO::IsqFile isq(path.c_str());
+        isq.ReadImageInfo();
+        return isqfile_to_dict(isq);
+    }, py::arg("path"));
+
+    m.def("read_isq", [](const std::string &path) {
+        AimIO::IsqFile isq(path.c_str());
+        isq.ReadImageInfo();
+
+        int nx = isq.dimensions_p[0];
+        int ny = isq.dimensions_p[1];
+        int nz = isq.dimensions_p[2];
+        size_t n = static_cast<size_t>(nx) * ny * nz;
+
+        py::array_t<short> arr({nz, ny, nx});
+        isq.ReadImageData(arr.mutable_data(), n);
+        return py::make_tuple(arr, isqfile_to_dict(isq));
+    }, py::arg("path"));
 }

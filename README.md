@@ -6,13 +6,14 @@
 
 Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) C++ library.
 
-`aimio-py` provides a small Python API to read and write AIM files as NumPy arrays, inspect metadata, and work with processing logs.
+`aimio-py` provides a small Python API to read and write AIM files as NumPy arrays, read ISQ files, inspect metadata, and work with processing logs.
 
 ## Features
 
 - Read AIM files into NumPy arrays
 - Write AIM files from NumPy arrays
-- Access AIM header metadata (`aim_info`)
+- Read ISQ files into NumPy arrays
+- Access AIM and ISQ header metadata (`aim_info`, `isq_info`)
 - Convert processing logs between text and dictionary formats
 - Optional density/HU conversion helpers
 
@@ -36,16 +37,33 @@ pip install -e .
 ## Quickstart
 
 ```python
-from py_aimio import read_aim, write_aim
+from py_aimio import read_aim, read_isq, write_aim
 
 array, meta = read_aim("scan.AIM")
 write_aim("copy.AIM", array, meta)
+
+isq_array, isq_meta = read_isq("scan.ISQ")
+```
+
+## Reading ISQ files
+
+```python
+from py_aimio import isq_info, read_isq
+
+info = isq_info("scan.ISQ")
+print("Dimensions:", info["dimensions"])
+print("Voxel spacing:", info["spacing"])
+
+array, meta = read_isq("scan.ISQ")
+print(array.shape, array.dtype)  # (z, y, x), int16
 ```
 
 ## API
 
 - `aim_info(path)`
+- `isq_info(path)`
 - `read_aim(path, density=False, hu=False) -> (array, meta)`
+- `read_isq(path) -> (array, meta)`
 - `write_aim(path, array, meta=None, unit=None)`
 - `get_aim_density_equation(processing_log)`
 - `get_aim_hu_equation(processing_log)`
@@ -84,18 +102,6 @@ Generated HTML will be in `docs/build/html/index.html`.
 ### Important build note
 
 This project depends on the `external/AimIO` and `external/n88util` git submodules. If they are missing, extension builds will fail.
-
-## Release and PyPI Publishing
-
-Wheels and sdist are built by GitHub Actions on:
-
-- `pull_request` to `main`/`master`
-- pushes to `main`/`master`
-- tags matching `v*`
-
-When a `v*` tag is pushed, the workflow publishes to PyPI via trusted publishing (`pypa/gh-action-pypi-publish`).
-
-See [`docs/PUBLISHING.md`](docs/PUBLISHING.md) for the release checklist and `docs/source/` for Sphinx documentation sources.
 
 ## Attribution
 
