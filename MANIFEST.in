@@ -8,3 +8,5 @@ recursive-include bindings *.cpp
 recursive-include external/AimIO/include *.h
 recursive-include external/AimIO/source *.h *.cxx
 recursive-include external/n88util/include *.hpp
+recursive-include tests *.py
+recursive-include tests/data *.ISQ *.md
