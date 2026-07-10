@@ -40,12 +40,13 @@ pip install -e .
 ## Quickstart
 
 ```python
-from py_aimio import image_info, read_image
+from py_aimio import image_info, read_image, write_aim
 
 array, meta = read_image("scan.AIM")
 print(meta["origin"], meta["spacing"], meta["direction"])
 
 header = image_info("scan.AIM")
+write_aim("copy.AIM", array, meta)
 ```
 
 The matching metadata CLI uses the same format resolution:
