@@ -137,6 +137,18 @@ def test_read_image_dispatches_by_extension_and_forwards_kwargs(monkeypatch):
     assert isq_meta["unit"] == "native"
 
 
+def test_read_image_dispatches_versioned_scanco_extensions(monkeypatch):
+    monkeypatch.setattr(api, "_aimio", DummyAimio())
+
+    aim_arr, aim_meta = api.read_image("scan.AIM;1", hu=True)
+    isq_arr, isq_meta = api.read_image("scan.ISQ;2", unit="native")
+
+    assert aim_meta["unit"] == "HU"
+    assert np.allclose(aim_arr, np.array([[[-1000.0, 0.0]]]))
+    assert np.array_equal(isq_arr, np.array([[[0, 1]]], dtype=np.int16))
+    assert isq_meta["unit"] == "native"
+
+
 def test_read_image_dispatches_scv_and_supports_sitk_style_alias(monkeypatch):
     expected = np.array([[1, 2]], dtype=np.uint8)
 
@@ -154,6 +166,20 @@ def test_read_image_dispatches_scv_and_supports_sitk_style_alias(monkeypatch):
     assert meta_alias == {"path": "scout.SCV", "format": "SCV"}
 
 
+def test_read_image_dispatches_gobj(monkeypatch):
+    expected = np.array([[[127]]], dtype=np.uint8)
+
+    def _read_gobj(path):
+        return expected, {"path": path, "format": "GOBJ"}
+
+    monkeypatch.setattr(api, "read_gobj", _read_gobj)
+
+    arr, meta = api.read_image("mask.GOBJ")
+
+    assert np.array_equal(arr, expected)
+    assert meta == {"path": "mask.GOBJ", "format": "GOBJ"}
+
+
 def test_read_image_accepts_explicit_format_for_unknown_extension(monkeypatch):
     monkeypatch.setattr(api, "_aimio", DummyAimio())
 
@@ -163,12 +189,50 @@ def test_read_image_accepts_explicit_format_for_unknown_extension(monkeypatch):
     assert meta["unit"] == "native"
 
 
+def test_image_info_dispatches_by_extension_and_supports_alias(monkeypatch):
+    monkeypatch.setattr(api, "_aimio", DummyAimio())
+
+    aim_meta = api.image_info("scan.AIM;1")
+    isq_meta = api.image_info("scan.ISQ;2")
+
+    assert aim_meta["path"] == "scan.AIM;1"
+    assert isq_meta["path"] == "scan.ISQ;2"
+
+    def _scv_info(path):
+        return {"path": path, "format": "SCV"}
+
+    def _gobj_info(path):
+        return {"path": path, "format": "GOBJ"}
+
+    monkeypatch.setattr(api, "scv_info", _scv_info)
+    monkeypatch.setattr(api, "gobj_info", _gobj_info)
+
+    assert api.image_info("scout.SCV;1") == {"path": "scout.SCV;1", "format": "SCV"}
+    assert api.ImageInfo("mask.GOBJ;2") == {"path": "mask.GOBJ;2", "format": "GOBJ"}
+
+
+def test_image_info_accepts_explicit_format_for_unknown_extension(monkeypatch):
+    monkeypatch.setattr(api, "_aimio", DummyAimio())
+
+    meta = api.image_info("scan.dat", format="isq")
+
+    assert meta["path"] == "scan.dat"
+
+
 def test_read_image_rejects_unknown_format_or_extension():
     with pytest.raises(ValueError, match="Could not infer image format"):
         api.read_image("scan.dat")
 
     with pytest.raises(ValueError, match="format must be one of"):
         api.read_image("scan.dat", format="dicom")
+
+
+def test_image_info_rejects_unknown_format_or_extension():
+    with pytest.raises(ValueError, match="Could not infer image format"):
+        api.image_info("scan.dat")
+
+    with pytest.raises(ValueError, match="format must be one of"):
+        api.image_info("scan.dat", format="dicom")
 
 
 def test_write_aim_native_path(monkeypatch):

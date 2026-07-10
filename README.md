@@ -6,7 +6,7 @@
 
 Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) C++ library.
 
-`aimio-py` provides a small Python API to read and write AIM files as NumPy arrays, read ISQ files, inspect metadata, and work with processing logs.
+`aimio-py` provides a small Python API to read and write AIM files as NumPy arrays, read ISQ, SCV, and GOBJ files, inspect metadata, and work with processing logs.
 
 ## Features
 
@@ -14,8 +14,9 @@ Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) 
 - Write AIM files from NumPy arrays
 - Read ISQ files into NumPy arrays
 - Read SCV scout-view files into NumPy arrays
-- Read AIM, ISQ, or SCV files with a single `read_image` dispatcher
-- Access AIM, ISQ, and SCV header metadata (`aim_info`, `isq_info`, `scv_info`)
+- Read GOBJ contour masks into binary NumPy volumes
+- Read AIM, ISQ, SCV, or GOBJ files with single `read_image` and `image_info` dispatchers
+- Access AIM, ISQ, SCV, and GOBJ header metadata (`aim_info`, `isq_info`, `scv_info`, `gobj_info`)
 - Convert processing logs between text and dictionary formats
 - Optional density/HU conversion helpers
 
@@ -39,7 +40,7 @@ pip install -e .
 ## Quickstart
 
 ```python
-from py_aimio import read_aim, read_image, read_isq, read_scv, write_aim
+from py_aimio import image_info, read_aim, read_gobj, read_image, read_isq, read_scv, write_aim
 
 array, meta = read_aim("scan.AIM")
 print(meta["origin"], meta["spacing"], meta["direction"])
@@ -47,8 +48,17 @@ write_aim("copy.AIM", array, meta)
 
 isq_array, isq_meta = read_isq("scan.ISQ")
 scout_array, scout_meta = read_scv("scout.SCV")
+mask_array, mask_meta = read_gobj("mask.GOBJ")
 
 image, image_meta = read_image("scan.ISQ")
+header_meta = image_info("mask.GOBJ")
+```
+
+The matching metadata CLI uses the same format resolution:
+
+```bash
+aimio-info scan.AIM
+aimio-info mask.GOBJ --format gobj
 ```
 
 ## Reading ISQ files
@@ -70,10 +80,13 @@ bmd_array, bmd_meta = read_isq("scan.ISQ", unit="density")
 ## API
 
 - `aim_info(path)`
+- `gobj_info(path)`
 - `isq_info(path)`
 - `scv_info(path)`
+- `image_info(path, format="auto") -> meta`
 - `read_image(path, format="auto", **kwargs) -> (array, meta)`
 - `read_aim(path, density=False, hu=False) -> (array, meta)`
+- `read_gobj(path, value=127, crop="tight") -> (array, meta)`
 - `read_isq(path, unit="native") -> (array, meta)`
 - `read_scv(path) -> (array, meta)`
 - `write_aim(path, array, meta=None, unit=None)`
@@ -94,6 +107,12 @@ origin is also exposed as `vtkbone_origin`. For ISQ, `spacing` comes from the IS
 header and `origin` defaults to `(0.0, 0.0, 0.0)`. `direction` currently defaults
 to the 3D identity direction, matching the practical behavior observed from
 ITKIOScanco for ISQ files without explicit orientation metadata.
+
+GOBJ files are read as contour masks. Additive contours are rasterized as
+filled contours including their boundary. Subtractive contours, such as inner
+cortical boundaries, remove only the strict contour interior so the contour
+boundary remains part of the mask. `crop="tight"` returns the contour bounding
+box, while `crop="header"` returns the full CTDATA header grid.
 
 ## Development
 

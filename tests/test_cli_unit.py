@@ -8,8 +8,8 @@ from py_aimio import cli
 def test_cli_main_prints_json(monkeypatch, capsys):
     monkeypatch.setattr(
         cli,
-        "aim_info",
-        lambda _p: {
+        "image_info",
+        lambda _p, format="auto": {
             "dimensions": (4, 5, 6),
             "position": (10, 20, 0),
             "spacing": (0.082, 0.082, 0.082),
@@ -26,15 +26,10 @@ def test_cli_main_prints_json(monkeypatch, capsys):
 
 
 def test_cli_main_dispatches_isq_files_to_isq_info(monkeypatch, capsys):
-    def _unexpected_aim_info(_p):
-        raise AssertionError("AIM reader should not handle .ISQ files")
-
-    monkeypatch.setattr(cli, "aim_info", _unexpected_aim_info)
     monkeypatch.setattr(
         cli,
-        "isq_info",
-        lambda _p: {"dimensions": (3, 2, 2), "mu_scaling": 4096},
-        raising=False,
+        "image_info",
+        lambda _p, format="auto": {"dimensions": (3, 2, 2), "format_arg": format, "mu_scaling": 4096},
     )
 
     rc = cli.main(["scan.ISQ", "--indent", "0"])
@@ -42,4 +37,23 @@ def test_cli_main_dispatches_isq_files_to_isq_info(monkeypatch, capsys):
 
     assert rc == 0
     assert payload["dimensions"] == [3, 2, 2]
+    assert payload["format_arg"] == "auto"
     assert payload["mu_scaling"] == 4096
+
+
+def test_cli_main_passes_format_to_image_info(monkeypatch, capsys):
+    calls = []
+
+    def _image_info(path, format="auto"):
+        calls.append((path, format))
+        return {"dimensions": (6, 5, 1), "format": "GOBJ"}
+
+    monkeypatch.setattr(cli, "image_info", _image_info)
+
+    rc = cli.main(["mask.GOBJ;1", "--format", "gobj", "--indent", "0"])
+    payload = json.loads(capsys.readouterr().out.strip())
+
+    assert rc == 0
+    assert calls == [("mask.GOBJ;1", "gobj")]
+    assert payload["dimensions"] == [6, 5, 1]
+    assert payload["format"] == "GOBJ"

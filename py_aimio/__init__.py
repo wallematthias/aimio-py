@@ -29,6 +29,7 @@ from .calibration import (
     get_isq_hu_equation,
 )
 from .header_log import log_to_dict, dict_to_log
+from .gobj import gobj_info, read_gobj
 from .scv import read_scv, scv_info
 
 
@@ -227,27 +228,30 @@ def read_isq(path: str, unit: str = "native") -> Tuple[np.ndarray, dict]:
 
 def _resolve_image_format(path: str, file_format: str = "auto") -> str:
     format_normalized = file_format.lower()
-    if format_normalized not in {"auto", "aim", "isq", "scv"}:
-        raise ValueError("format must be one of: 'auto', 'aim', 'isq', or 'scv'")
+    if format_normalized not in {"auto", "aim", "isq", "scv", "gobj"}:
+        raise ValueError("format must be one of: 'auto', 'aim', 'isq', 'scv', or 'gobj'")
     if format_normalized != "auto":
         return format_normalized
 
-    suffix = Path(path).suffix.lower()
+    path_without_version = str(path).rsplit(";", 1)[0] if str(path).rsplit(";", 1)[-1].isdigit() else str(path)
+    suffix = Path(path_without_version).suffix.lower()
     if suffix == ".aim":
         return "aim"
     if suffix == ".isq":
         return "isq"
     if suffix == ".scv":
         return "scv"
-    raise ValueError("Could not infer image format from extension; pass format='aim', 'isq', or 'scv'")
+    if suffix == ".gobj":
+        return "gobj"
+    raise ValueError("Could not infer image format from extension; pass format='aim', 'isq', 'scv', or 'gobj'")
 
 
 def read_image(path: str, format: str = "auto", **kwargs) -> Tuple[np.ndarray, dict]:
-    """Read an AIM, ISQ, or SCV image into a NumPy array plus metadata.
+    """Read an AIM, ISQ, SCV, or GOBJ image into a NumPy array plus metadata.
 
     Parameters:
         path: image file path
-        format: ``"auto"``, ``"aim"``, ``"isq"``, or ``"scv"``
+        format: ``"auto"``, ``"aim"``, ``"isq"``, ``"scv"``, or ``"gobj"``
         **kwargs: forwarded to the selected reader, e.g. ``unit="hu"`` for ISQ
             or ``density=True`` for AIM.
 
@@ -259,10 +263,35 @@ def read_image(path: str, format: str = "auto", **kwargs) -> Tuple[np.ndarray, d
         return read_aim(str(path), **kwargs)
     if image_format == "isq":
         return read_isq(str(path), **kwargs)
-    return read_scv(str(path), **kwargs)
+    if image_format == "scv":
+        return read_scv(str(path), **kwargs)
+    return read_gobj(str(path), **kwargs)
 
 
 ReadImage = read_image
+
+
+def image_info(path: str, format: str = "auto") -> dict:
+    """Read AIM, ISQ, SCV, or GOBJ metadata without loading image data.
+
+    Parameters:
+        path: image file path
+        format: ``"auto"``, ``"aim"``, ``"isq"``, ``"scv"``, or ``"gobj"``
+
+    Returns:
+        Metadata dictionary from the format-specific ``*_info`` function.
+    """
+    image_format = _resolve_image_format(str(path), format)
+    if image_format == "aim":
+        return aim_info(str(path))
+    if image_format == "isq":
+        return isq_info(str(path))
+    if image_format == "scv":
+        return scv_info(str(path))
+    return gobj_info(str(path))
+
+
+ImageInfo = image_info
 
 
 def write_aim(path: str, array, meta: dict = None, unit: str = None):
@@ -326,12 +355,16 @@ def write_aim(path: str, array, meta: dict = None, unit: str = None):
 
 __all__ = [
     "aim_info",
+    "gobj_info",
+    "image_info",
     "isq_info",
     "read_aim",
+    "read_gobj",
     "read_image",
     "read_isq",
     "read_scv",
     "ReadImage",
+    "ImageInfo",
     "scv_info",
     "write_aim",
     "log_to_dict",
