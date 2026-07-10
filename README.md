@@ -45,12 +45,7 @@ from py_aimio import image_info, read_image
 array, meta = read_image("scan.AIM")
 print(meta["origin"], meta["spacing"], meta["direction"])
 
-isq_array, isq_meta = read_image("scan.ISQ", unit="hu")
-scout_array, scout_meta = read_image("scout.SCV")
-mask_array, mask_meta = read_image("mask.GOBJ", value=1, crop="tight")
-
-scan_header = image_info("scan.ISQ")
-mask_header = image_info("mask.GOBJ")
+header = image_info("scan.AIM")
 ```
 
 The matching metadata CLI uses the same format resolution:
@@ -59,6 +54,29 @@ The matching metadata CLI uses the same format resolution:
 aimio-info scan.AIM
 aimio-info mask.GOBJ --format gobj
 ```
+
+## Reading Options
+
+`read_image()` detects AIM, ISQ, SCV, and GOBJ files from the extension and
+forwards any extra keyword arguments to the format-specific reader.
+
+```python
+aim, aim_meta = read_image("scan.AIM", density=True)
+isq, isq_meta = read_image("scan.ISQ", unit="density")
+scout, scout_meta = read_image("scout.SCV")
+mask, mask_meta = read_image("mask.GOBJ", value=1, crop="tight")
+```
+
+The format-specific readers are also available directly:
+
+- AIM: `read_aim(path, density=False, hu=False)`
+- ISQ: `read_isq(path, unit="native")`, where `unit` can be `"native"`, `"hu"`, `"density"`, or `"bmd"`
+- SCV: `read_scv(path)`
+- GOBJ: `read_gobj(path, value=127, crop="tight")`, where `crop` can be `"tight"` or `"header"`
+
+At the moment, AIM and ISQ default to native stored values. For calibrated bone
+workflows, request density/BMD explicitly with `density=True` for AIM or
+`unit="density"`/`unit="bmd"` for ISQ.
 
 ## API
 
@@ -77,10 +95,6 @@ Format-specific readers and metadata helpers are also available:
 - `get_aim_hu_equation(processing_log)`
 - `log_to_dict(log)`
 - `dict_to_log(dct)`
-
-For ISQ files, `unit="native"` returns stored scanner values. `unit="hu"` and
-`unit="density"`/`unit="bmd"` use calibration metadata from the ISQ extended
-header when present.
 
 Read metadata includes SimpleITK-style geometry keys for both AIM and ISQ:
 `origin`, `spacing`, and `direction`. For AIM, `spacing` is copied from
