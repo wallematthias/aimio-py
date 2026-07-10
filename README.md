@@ -40,18 +40,17 @@ pip install -e .
 ## Quickstart
 
 ```python
-from py_aimio import image_info, read_aim, read_gobj, read_image, read_isq, read_scv, write_aim
+from py_aimio import image_info, read_image
 
-array, meta = read_aim("scan.AIM")
+array, meta = read_image("scan.AIM")
 print(meta["origin"], meta["spacing"], meta["direction"])
-write_aim("copy.AIM", array, meta)
 
-isq_array, isq_meta = read_isq("scan.ISQ")
-scout_array, scout_meta = read_scv("scout.SCV")
-mask_array, mask_meta = read_gobj("mask.GOBJ")
+isq_array, isq_meta = read_image("scan.ISQ", unit="hu")
+scout_array, scout_meta = read_image("scout.SCV")
+mask_array, mask_meta = read_image("mask.GOBJ", value=1, crop="tight")
 
-image, image_meta = read_image("scan.ISQ")
-header_meta = image_info("mask.GOBJ")
+scan_header = image_info("scan.ISQ")
+mask_header = image_info("mask.GOBJ")
 ```
 
 The matching metadata CLI uses the same format resolution:
@@ -61,34 +60,18 @@ aimio-info scan.AIM
 aimio-info mask.GOBJ --format gobj
 ```
 
-## Reading ISQ files
-
-```python
-from py_aimio import isq_info, read_isq
-
-info = isq_info("scan.ISQ")
-print("Dimensions:", info["dimensions"])
-print("Voxel spacing:", info["spacing"])
-
-array, meta = read_isq("scan.ISQ")
-print(array.shape, array.dtype)  # (z, y, x), int16
-
-hu_array, hu_meta = read_isq("scan.ISQ", unit="hu")
-bmd_array, bmd_meta = read_isq("scan.ISQ", unit="density")
-```
-
 ## API
 
-- `aim_info(path)`
-- `gobj_info(path)`
-- `isq_info(path)`
-- `scv_info(path)`
-- `image_info(path, format="auto") -> meta`
 - `read_image(path, format="auto", **kwargs) -> (array, meta)`
+- `image_info(path, format="auto") -> meta`
+
+Format-specific readers and metadata helpers are also available:
+
 - `read_aim(path, density=False, hu=False) -> (array, meta)`
-- `read_gobj(path, value=127, crop="tight") -> (array, meta)`
 - `read_isq(path, unit="native") -> (array, meta)`
 - `read_scv(path) -> (array, meta)`
+- `read_gobj(path, value=127, crop="tight") -> (array, meta)`
+- `aim_info(path)`, `isq_info(path)`, `scv_info(path)`, `gobj_info(path)`
 - `write_aim(path, array, meta=None, unit=None)`
 - `get_aim_density_equation(processing_log)`
 - `get_aim_hu_equation(processing_log)`
