@@ -235,6 +235,9 @@ def write_aim(path: str, array, meta: dict = None, unit: str = None):
     Returns:
         header dict from the underlying write call.
 
+    Throws: 
+        ValueError if calibration constants incomplete in processing log
+
     Example:
         >>> arr, meta = read_aim("scan.AIM")
         >>> write_aim("scan_copy.AIM", arr, meta)

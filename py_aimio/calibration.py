@@ -45,6 +45,9 @@ def get_aim_calibration_constants_from_processing_log(processing_log):
 
     Returns:
         Tuple ``(mu_scaling, hu_mu_water, hu_mu_air, density_slope, density_intercept)``.
+
+    Throws:
+        ValueError if constants not present in processing log
     """
     number = r"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)"
 
