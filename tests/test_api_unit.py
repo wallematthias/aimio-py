@@ -125,6 +125,52 @@ def test_read_aim_keeps_processing_log_string_when_parse_fails(monkeypatch):
     assert isinstance(meta["processing_log_raw"], str)
 
 
+def test_read_image_dispatches_by_extension_and_forwards_kwargs(monkeypatch):
+    monkeypatch.setattr(api, "_aimio", DummyAimio())
+
+    aim_arr, aim_meta = api.read_image("scan.AIM", hu=True)
+    assert aim_meta["unit"] == "HU"
+    assert np.allclose(aim_arr, np.array([[[-1000.0, 0.0]]]))
+
+    isq_arr, isq_meta = api.read_image("scan.ISQ", unit="native")
+    assert np.array_equal(isq_arr, np.array([[[0, 1]]], dtype=np.int16))
+    assert isq_meta["unit"] == "native"
+
+
+def test_read_image_dispatches_scv_and_supports_sitk_style_alias(monkeypatch):
+    expected = np.array([[1, 2]], dtype=np.uint8)
+
+    def _read_scv(path):
+        return expected, {"path": path, "format": "SCV"}
+
+    monkeypatch.setattr(api, "read_scv", _read_scv)
+
+    arr, meta = api.read_image("scout.SCV")
+    assert np.array_equal(arr, expected)
+    assert meta == {"path": "scout.SCV", "format": "SCV"}
+
+    arr_alias, meta_alias = api.ReadImage("scout.SCV")
+    assert np.array_equal(arr_alias, expected)
+    assert meta_alias == {"path": "scout.SCV", "format": "SCV"}
+
+
+def test_read_image_accepts_explicit_format_for_unknown_extension(monkeypatch):
+    monkeypatch.setattr(api, "_aimio", DummyAimio())
+
+    arr, meta = api.read_image("scan.dat", format="isq")
+
+    assert np.array_equal(arr, np.array([[[0, 1]]], dtype=np.int16))
+    assert meta["unit"] == "native"
+
+
+def test_read_image_rejects_unknown_format_or_extension():
+    with pytest.raises(ValueError, match="Could not infer image format"):
+        api.read_image("scan.dat")
+
+    with pytest.raises(ValueError, match="format must be one of"):
+        api.read_image("scan.dat", format="dicom")
+
+
 def test_write_aim_native_path(monkeypatch):
     backend = DummyAimio()
     monkeypatch.setattr(api, "_aimio", backend)

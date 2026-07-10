@@ -13,7 +13,9 @@ Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) 
 - Read AIM files into NumPy arrays
 - Write AIM files from NumPy arrays
 - Read ISQ files into NumPy arrays
-- Access AIM and ISQ header metadata (`aim_info`, `isq_info`)
+- Read SCV scout-view files into NumPy arrays
+- Read AIM, ISQ, or SCV files with a single `read_image` dispatcher
+- Access AIM, ISQ, and SCV header metadata (`aim_info`, `isq_info`, `scv_info`)
 - Convert processing logs between text and dictionary formats
 - Optional density/HU conversion helpers
 
@@ -37,13 +39,16 @@ pip install -e .
 ## Quickstart
 
 ```python
-from py_aimio import read_aim, read_isq, write_aim
+from py_aimio import read_aim, read_image, read_isq, read_scv, write_aim
 
 array, meta = read_aim("scan.AIM")
 print(meta["origin"], meta["spacing"], meta["direction"])
 write_aim("copy.AIM", array, meta)
 
 isq_array, isq_meta = read_isq("scan.ISQ")
+scout_array, scout_meta = read_scv("scout.SCV")
+
+image, image_meta = read_image("scan.ISQ")
 ```
 
 ## Reading ISQ files
@@ -66,8 +71,11 @@ bmd_array, bmd_meta = read_isq("scan.ISQ", unit="density")
 
 - `aim_info(path)`
 - `isq_info(path)`
+- `scv_info(path)`
+- `read_image(path, format="auto", **kwargs) -> (array, meta)`
 - `read_aim(path, density=False, hu=False) -> (array, meta)`
 - `read_isq(path, unit="native") -> (array, meta)`
+- `read_scv(path) -> (array, meta)`
 - `write_aim(path, array, meta=None, unit=None)`
 - `get_aim_density_equation(processing_log)`
 - `get_aim_hu_equation(processing_log)`

@@ -9,6 +9,7 @@ Provides wrappers around the compiled `_aimio` extension that offer
 convenience options like `density=True` on `read_aim` and ensure that
 `write_aim` always writes native values.
 """
+from pathlib import Path
 from typing import Tuple
 from importlib.metadata import PackageNotFoundError, version
 
@@ -28,6 +29,7 @@ from .calibration import (
     get_isq_hu_equation,
 )
 from .header_log import log_to_dict, dict_to_log
+from .scv import read_scv, scv_info
 
 
 IDENTITY_DIRECTION_3D = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
@@ -223,6 +225,46 @@ def read_isq(path: str, unit: str = "native") -> Tuple[np.ndarray, dict]:
     return arr, meta
 
 
+def _resolve_image_format(path: str, file_format: str = "auto") -> str:
+    format_normalized = file_format.lower()
+    if format_normalized not in {"auto", "aim", "isq", "scv"}:
+        raise ValueError("format must be one of: 'auto', 'aim', 'isq', or 'scv'")
+    if format_normalized != "auto":
+        return format_normalized
+
+    suffix = Path(path).suffix.lower()
+    if suffix == ".aim":
+        return "aim"
+    if suffix == ".isq":
+        return "isq"
+    if suffix == ".scv":
+        return "scv"
+    raise ValueError("Could not infer image format from extension; pass format='aim', 'isq', or 'scv'")
+
+
+def read_image(path: str, format: str = "auto", **kwargs) -> Tuple[np.ndarray, dict]:
+    """Read an AIM, ISQ, or SCV image into a NumPy array plus metadata.
+
+    Parameters:
+        path: image file path
+        format: ``"auto"``, ``"aim"``, ``"isq"``, or ``"scv"``
+        **kwargs: forwarded to the selected reader, e.g. ``unit="hu"`` for ISQ
+            or ``density=True`` for AIM.
+
+    Returns:
+        (array, meta) from the format-specific reader.
+    """
+    image_format = _resolve_image_format(str(path), format)
+    if image_format == "aim":
+        return read_aim(str(path), **kwargs)
+    if image_format == "isq":
+        return read_isq(str(path), **kwargs)
+    return read_scv(str(path), **kwargs)
+
+
+ReadImage = read_image
+
+
 def write_aim(path: str, array, meta: dict = None, unit: str = None):
     """Write an AIM file. Input is converted back to native units before writing.
 
@@ -286,7 +328,11 @@ __all__ = [
     "aim_info",
     "isq_info",
     "read_aim",
+    "read_image",
     "read_isq",
+    "read_scv",
+    "ReadImage",
+    "scv_info",
     "write_aim",
     "log_to_dict",
     "dict_to_log",

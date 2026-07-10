@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import aim_info, isq_info
+from . import aim_info, isq_info, scv_info
 
 
 def _json_default(value: Any) -> Any:
@@ -21,6 +21,10 @@ def _info_reader(path: str, file_format: str):
         return aim_info
     if file_format == "isq":
         return isq_info
+    if file_format == "scv":
+        return scv_info
+    if Path(path).suffix.lower() == ".scv":
+        return scv_info
     if Path(path).suffix.lower() == ".isq":
         return isq_info
     return aim_info
@@ -29,12 +33,12 @@ def _info_reader(path: str, file_format: str):
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="aimio-info",
-        description="Print AIM or ISQ header metadata as JSON.",
+        description="Print AIM, ISQ, or SCV header metadata as JSON.",
     )
     parser.add_argument("path", help="Path to image file")
     parser.add_argument(
         "--format",
-        choices=("auto", "aim", "isq"),
+        choices=("auto", "aim", "isq", "scv"),
         default="auto",
         help="Input file format (default: auto from extension)",
     )
