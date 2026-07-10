@@ -149,6 +149,7 @@ This project depends on the `external/AimIO` and `external/n88util` git submodul
 
 - `py_aimio/calibration.py` is adapted from [Bonelab/Bonelab](https://github.com/Bonelab/Bonelab/).
 - `py_aimio/header_log.py` is by Matthias Walle.
+- `py_aimio/scv.py` and `py_aimio/gobj.py` are by Matthias Walle and Andrew Burghardt.
 
 ## License
 
