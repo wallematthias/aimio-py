@@ -7,6 +7,8 @@ on:
     branches: [ "main", "master" ]
     tags:
       - 'v*'
+  schedule:
+    - cron: "30 9 1 * *"
   workflow_dispatch:
 
 jobs:
@@ -44,7 +46,7 @@ jobs:
 
       - name: Install cibuildwheel
         run: |
-          python -m pip install --upgrade pip cibuildwheel
+          python -m pip install --upgrade pip "cibuildwheel>=3"
 
       - name: Cache vcpkg artifacts (Windows)
         if: matrix.os == 'windows-latest'
@@ -62,8 +64,8 @@ jobs:
 
       - name: Build wheels (cibuildwheel)
         env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
-          CIBW_SKIP: "*-musllinux_* *-manylinux_i686 *-win32"
+          CIBW_BUILD: "cp3??-*"
+          CIBW_SKIP: "cp3??t-* *-musllinux_* *-manylinux_i686 *-win32"
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
           CIBW_TEST_COMMAND: "python -c \"from py_aimio import isq_info, read_isq; import py_aimio._aimio as _ext; print(_ext.__file__)\""
           CIBW_BUILD_VERBOSITY: "1"
