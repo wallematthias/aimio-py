@@ -20,7 +20,7 @@ jobs:
       url: https://pypi.org/p/aimio-py
     steps:
       - name: Download wheel artifacts from source run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
@@ -30,7 +30,7 @@ jobs:
           merge-multiple: true
 
       - name: Download sdist artifact from source run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
@@ -39,7 +39,7 @@ jobs:
           path: dist
 
       - name: Set up Python for debug tooling
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
