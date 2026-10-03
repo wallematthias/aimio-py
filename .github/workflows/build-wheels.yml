@@ -67,7 +67,10 @@ jobs:
           CIBW_BUILD: "cp3??-*"
           CIBW_SKIP: "cp3??t-* *-musllinux_* *-manylinux_i686 *-win32"
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
-          CIBW_TEST_COMMAND: "python -c \"from py_aimio import isq_info, read_isq; import py_aimio._aimio as _ext; print(_ext.__file__)\""
+          CIBW_TEST_REQUIRES: "pytest"
+          CIBW_TEST_COMMAND: >-
+            python -c "from py_aimio import isq_info, read_isq, rsq_info, read_rsq; import py_aimio._aimio as _ext; print(_ext.__file__)"
+            && python -m pytest {project}/tests/test_rsq.py -q
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_BEFORE_ALL_LINUX: >-
             if command -v yum >/dev/null 2>&1; then yum install -y boost-devel;
