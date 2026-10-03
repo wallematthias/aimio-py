@@ -18,12 +18,12 @@ def _json_default(value: Any) -> Any:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="aimio-info",
-        description="Print AIM, ISQ, SCV, or GOBJ header metadata as JSON.",
+        description="Print AIM, ISQ, SCV, GOBJ, or RSQ header metadata as JSON.",
     )
     parser.add_argument("path", help="Path to image file")
     parser.add_argument(
         "--format",
-        choices=("auto", "aim", "isq", "scv", "gobj"),
+        choices=("auto", "aim", "isq", "scv", "gobj", "rsq"),
         default="auto",
         help="Input file format (default: auto from extension)",
     )

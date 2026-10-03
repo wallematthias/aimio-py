@@ -16,7 +16,8 @@ Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) 
 - Read SCV scout-view files into NumPy arrays
 - Read GOBJ contour masks into binary NumPy volumes
 - Read AIM, ISQ, SCV, or GOBJ files with single `read_image` and `image_info` dispatchers
-- Access AIM, ISQ, SCV, and GOBJ header metadata (`aim_info`, `isq_info`, `scv_info`, `gobj_info`)
+- Read RSQ raw detector projections with optional read-only memory mapping
+- Access AIM, ISQ, SCV, GOBJ, and RSQ header metadata (`aim_info`, `isq_info`, `scv_info`, `gobj_info`, `rsq_info`)
 - Convert processing logs between text and dictionary formats
 - Optional density/HU conversion helpers
 
@@ -54,11 +55,12 @@ The matching metadata CLI uses the same format resolution:
 ```bash
 aimio-info scan.AIM
 aimio-info mask.GOBJ --format gobj
+aimio-info projections.RSQ --format rsq
 ```
 
 ## Reading Options
 
-`read_image()` detects AIM, ISQ, SCV, and GOBJ files from the extension and
+`read_image()` detects AIM, ISQ, SCV, GOBJ, and RSQ files from the extension and
 forwards any extra keyword arguments to the format-specific reader.
 
 ```python
@@ -66,6 +68,7 @@ aim, aim_meta = read_image("scan.AIM", density=True)
 isq, isq_meta = read_image("scan.ISQ", unit="density")
 scout, scout_meta = read_image("scout.SCV")
 mask, mask_meta = read_image("mask.GOBJ", value=1, crop="tight")
+counts, rsq_meta = read_image("projections.RSQ", mmap=True)
 ```
 
 The format-specific readers are also available directly:
@@ -74,6 +77,7 @@ The format-specific readers are also available directly:
 - ISQ: `read_isq(path, unit="native")`, where `unit` can be `"native"`, `"hu"`, `"density"`, or `"bmd"`
 - SCV: `read_scv(path)`
 - GOBJ: `read_gobj(path, value=127, crop="tight")`, where `crop` can be `"tight"` or `"header"`
+- RSQ: `read_rsq(path, *, mmap=False)`
 
 At the moment, AIM and ISQ default to native stored values. For calibrated bone
 workflows, request density/BMD explicitly with `density=True` for AIM or
@@ -90,7 +94,8 @@ Format-specific readers and metadata helpers are also available:
 - `read_isq(path, unit="native") -> (array, meta)`
 - `read_scv(path) -> (array, meta)`
 - `read_gobj(path, value=127, crop="tight") -> (array, meta)`
-- `aim_info(path)`, `isq_info(path)`, `scv_info(path)`, `gobj_info(path)`
+- `read_rsq(path, *, mmap=False) -> (counts, meta)`
+- `aim_info(path)`, `isq_info(path)`, `scv_info(path)`, `gobj_info(path)`, `rsq_info(path)`
 - `write_aim(path, array, meta=None, unit=None)`
 - `get_aim_density_equation(processing_log)`
 - `get_aim_hu_equation(processing_log)`
@@ -111,6 +116,52 @@ filled contours including their boundary. Subtractive contours, such as inner
 cortical boundaries, remove only the strict contour interior so the contour
 boundary remains part of the mask. `crop="tight"` returns the contour bounding
 box, while `crop="header"` returns the full CTDATA header grid.
+
+## RSQ raw projections
+
+```python
+from py_aimio import read_rsq, rsq_info
+
+counts, meta = read_rsq("projections.RSQ;1", mmap=True)
+print(counts.shape, meta["axis_order"])
+header = rsq_info("projections.RSQ;1")
+```
+
+The supported RSQ storage interpretation uses the 16-byte
+`CTDATA-HEADER_V1` magic and 128 little-endian unsigned header words. Arrays
+have shape `(header_words[13], header_words[12], header_words[11])` and axes
+`("detector_row", "frame", "detector_column")`. Values are decoded as
+little-endian unsigned 16-bit detector counts (`<u2`), preserving values up to
+65535. Signedness has not been independently confirmed for every proprietary
+Scanco RSQ variant. `mmap=True` returns a read-only NumPy memory map.
+
+Every stored frame is retained. Object views and any reference frames are not
+classified or discarded, and raw reading does not require a minimum number of
+frames. RSQ projections do not carry reconstructed volume `origin`, `spacing`,
+or `direction` keys. Spatial volume, HU, and density conversion requests through
+`read_image()` raise `ValueError`.
+
+Metadata includes `header_words`, `shape`, `axis_order`, `dtype`,
+`data_offset_bytes`, and a `geometry` dictionary with explicit provenance and
+header positions. Geometry hints include requested output pitch and axial start
+in micrometers, native detector dimensions, detector size, source distances,
+binning, object view count, and angular interval in millidegrees. These are
+partially inferred header meanings, not independently validated reconstruction
+geometry. Words 21 and 22 are exposed as `count_range`; they do not define
+attenuation scaling. Patient-name fields are not decoded, although raw header
+words can still contain identifying data.
+
+Both readers validate positive dimensions and require an exact payload length
+of `2 * product(shape)` bytes after offset `512 * (header_words[127] + 1)`.
+Unsupported magic, truncated data, and trailing payload bytes are rejected.
+`rsq_info()` checks file size and reads only the base header and final 512-byte
+header block. When that block contains a recognized `Beamhard.Corr.` title,
+three float64 coefficients at bytes 476:500 are checked against the printed
+`Corr at 2 3 6:` anchors using
+`delta(p) = a1*p + a2*p**2 + a3*p**3` with absolute tolerance `1e-6`.
+Corrupt recognized calibration raises `ValueError`; absent or unrecognized
+calibration has `beam_hardening["available"] = False`. The reader exposes
+validated coefficients without applying them to counts.
 
 ## Development
 
