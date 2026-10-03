@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import struct
 
 from py_aimio import cli
 
@@ -57,3 +58,20 @@ def test_cli_main_passes_format_to_image_info(monkeypatch, capsys):
     assert calls == [("mask.GOBJ;1", "gobj")]
     assert payload["dimensions"] == [6, 5, 1]
     assert payload["format"] == "GOBJ"
+
+
+def test_cli_reads_rsq_metadata_as_json(tmp_path, capsys):
+    path = tmp_path / "synthetic.RSQ;1"
+    header = bytearray(512)
+    header[:16] = b"CTDATA-HEADER_V1"
+    struct.pack_into("<3I", header, 44, 1, 1, 1)
+    path.write_bytes(header + b"\xff\xff")
+
+    rc = cli.main([str(path), "--format", "rsq", "--indent", "0"])
+    info = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    assert info["shape"] == [1, 1, 1]
+    assert info["dtype"] == "<u2"
+    assert info["header_words"][11:14] == [1, 1, 1]
+    assert info["beam_hardening"]["available"] is False

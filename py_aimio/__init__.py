@@ -31,6 +31,7 @@ from .calibration import (
 from .header_log import log_to_dict, dict_to_log
 from .gobj import gobj_info, read_gobj
 from .scv import read_scv, scv_info
+from .rsq import read_rsq, rsq_info
 
 
 IDENTITY_DIRECTION_3D = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
@@ -228,8 +229,8 @@ def read_isq(path: str, unit: str = "native") -> Tuple[np.ndarray, dict]:
 
 def _resolve_image_format(path: str, file_format: str = "auto") -> str:
     format_normalized = file_format.lower()
-    if format_normalized not in {"auto", "aim", "isq", "scv", "gobj"}:
-        raise ValueError("format must be one of: 'auto', 'aim', 'isq', 'scv', or 'gobj'")
+    if format_normalized not in {"auto", "aim", "isq", "scv", "gobj", "rsq"}:
+        raise ValueError("format must be one of: 'auto', 'aim', 'isq', 'scv', 'gobj', or 'rsq'")
     if format_normalized != "auto":
         return format_normalized
 
@@ -243,17 +244,20 @@ def _resolve_image_format(path: str, file_format: str = "auto") -> str:
         return "scv"
     if suffix == ".gobj":
         return "gobj"
-    raise ValueError("Could not infer image format from extension; pass format='aim', 'isq', 'scv', or 'gobj'")
+    if suffix == ".rsq":
+        return "rsq"
+    raise ValueError("Could not infer image format from extension; pass format='aim', 'isq', 'scv', 'gobj', or 'rsq'")
 
 
 def read_image(path: str, format: str = "auto", **kwargs) -> Tuple[np.ndarray, dict]:
-    """Read an AIM, ISQ, SCV, or GOBJ image into a NumPy array plus metadata.
+    """Read AIM, ISQ, SCV, GOBJ images or RSQ raw projections plus metadata.
 
     Parameters:
         path: image file path
-        format: ``"auto"``, ``"aim"``, ``"isq"``, ``"scv"``, or ``"gobj"``
+        format: ``"auto"``, ``"aim"``, ``"isq"``, ``"scv"``, ``"gobj"``, or ``"rsq"``
         **kwargs: forwarded to the selected reader, e.g. ``unit="hu"`` for ISQ
-            or ``density=True`` for AIM.
+            or ``density=True`` for AIM. RSQ accepts only ``mmap`` and returns
+            raw detector counts rather than a spatial volume.
 
     Returns:
         (array, meta) from the format-specific reader.
@@ -265,6 +269,13 @@ def read_image(path: str, format: str = "auto", **kwargs) -> Tuple[np.ndarray, d
         return read_isq(str(path), **kwargs)
     if image_format == "scv":
         return read_scv(str(path), **kwargs)
+    if image_format == "rsq":
+        if set(kwargs) - {"mmap"}:
+            raise ValueError(
+                "RSQ contains raw detector projections; only mmap is supported. "
+                "Spatial volume, HU, and density conversion are unavailable."
+            )
+        return read_rsq(str(path), **kwargs)
     return read_gobj(str(path), **kwargs)
 
 
@@ -272,11 +283,11 @@ ReadImage = read_image
 
 
 def image_info(path: str, format: str = "auto") -> dict:
-    """Read AIM, ISQ, SCV, or GOBJ metadata without loading image data.
+    """Read AIM, ISQ, SCV, GOBJ, or RSQ metadata without loading image data.
 
     Parameters:
         path: image file path
-        format: ``"auto"``, ``"aim"``, ``"isq"``, ``"scv"``, or ``"gobj"``
+        format: ``"auto"``, ``"aim"``, ``"isq"``, ``"scv"``, ``"gobj"``, or ``"rsq"``
 
     Returns:
         Metadata dictionary from the format-specific ``*_info`` function.
@@ -288,6 +299,8 @@ def image_info(path: str, format: str = "auto") -> dict:
         return isq_info(str(path))
     if image_format == "scv":
         return scv_info(str(path))
+    if image_format == "rsq":
+        return rsq_info(str(path))
     return gobj_info(str(path))
 
 
@@ -362,10 +375,12 @@ __all__ = [
     "read_gobj",
     "read_image",
     "read_isq",
+    "read_rsq",
     "read_scv",
     "ReadImage",
     "ImageInfo",
     "scv_info",
+    "rsq_info",
     "write_aim",
     "log_to_dict",
     "dict_to_log",

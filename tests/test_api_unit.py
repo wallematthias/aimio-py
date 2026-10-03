@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import struct
 
 import py_aimio as api
 
@@ -268,3 +269,26 @@ def test_write_aim_hu_with_unit_override(monkeypatch):
     api.write_aim("out.AIM", arr_hu, meta={"processing_log": PROCESSING_LOG}, unit="HU")
     _, written_arr, _ = backend.last_write
     assert np.allclose(written_arr, np.array([[[0.0, 1000.0]]]))
+
+
+@pytest.mark.parametrize("filename,file_format", [("scan.RSQ", "auto"), ("scan.RsQ;2", "auto"), ("scan.dat", "rsq")])
+def test_rsq_dispatch_preserves_raw_projection_axes_and_aliases(tmp_path, filename, file_format):
+    path = tmp_path / filename
+    header = bytearray(512)
+    header[:16] = b"CTDATA-HEADER_V1"
+    struct.pack_into("<3I", header, 44, 2, 1, 1)
+    path.write_bytes(header + b"\x01\x00\xff\xff")
+
+    counts, meta = api.ReadImage(path, format=file_format, mmap=True)
+    info = api.ImageInfo(path, format=file_format)
+
+    assert isinstance(counts, np.memmap)
+    assert np.array_equal(counts, np.array([[[1, 65535]]], dtype="<u2"))
+    assert meta == info
+    assert info["axis_order"] == ("detector_row", "frame", "detector_column")
+
+
+@pytest.mark.parametrize("kwargs", [{"hu": True}, {"density": True}, {"unit": "hu"}, {"unit": "bmd"}, {"as_volume": True}])
+def test_rsq_dispatch_rejects_calibrated_or_spatial_volume_conversion(kwargs):
+    with pytest.raises(ValueError, match="RSQ.*raw|RSQ.*projection"):
+        api.read_image("scan.RSQ", **kwargs)

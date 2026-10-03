@@ -15,3 +15,6 @@ The API reference is generated from package docstrings.
 .. automodule:: py_aimio.header_log
    :members:
    :undoc-members:
+
+.. automodule:: py_aimio.rsq
+   :members: read_rsq, rsq_info
