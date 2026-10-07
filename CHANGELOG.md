@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Correct ISQ density conversion by dividing the extended-header attenuation-to-density slope by `mu_scaling`. Expose the original physical slope as `density_slope`; `rescale_slope` now converts native voxels to density. Native pixels and HU conversion are unchanged.
+
 ## 0.4.1 — 2026-10-07
 
 - Add pure-Python `read_rad`/`rad_info` for type-9 CTDATA scout radiographs, preserving signed int16 values and converting nanometre header dimensions to mm. Support RAD in image dispatch, aliases, and `aimio-info` without HU/density conversion.

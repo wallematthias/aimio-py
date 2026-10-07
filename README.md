@@ -87,6 +87,13 @@ At the moment, AIM and ISQ default to native stored values. For calibrated bone
 workflows, request density/BMD explicitly with `density=True` for AIM or
 `unit="density"`/`unit="bmd"` for ISQ.
 
+ISQ native values equal attenuation in 1/cm multiplied by `mu_scaling`.
+The extended calibration block stores the density slope per attenuation in
+1/cm. Metadata exposes this physical coefficient as `density_slope` and its
+native-voxel equivalent as `rescale_slope = density_slope / mu_scaling`.
+Density conversion applies `native * rescale_slope + rescale_intercept`, in
+the header's `rescale_units` (typically mg HA/cm³).
+
 ## API
 
 - `read_image(path, format="auto", **kwargs) -> (array, meta)`

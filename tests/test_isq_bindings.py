@@ -121,13 +121,13 @@ def test_read_isq_hu_conversion_uses_extended_calibration(tmp_path):
 
     assert np.allclose(arr, np.array([[[-1000.0, -999.0]]]))
     assert meta["unit"] == "HU"
-    assert meta["rescale_slope"] == 2.0
+    assert meta["rescale_slope"] == 2.0 / 1000
     assert meta["rescale_intercept"] == 3.0
     assert meta["mu_water"] == 1.0
 
 
 def test_read_isq_density_and_bmd_conversion_use_extended_calibration(tmp_path):
-    data = np.array([[[0, 1]]], dtype=np.int16)
+    data = np.array([[[0, 4096]]], dtype=np.int16)
     path = tmp_path / "calibrated.ISQ"
     _write_tiny_isq(path, data, extended_calibration=True, rescale_slope=2.0, rescale_intercept=3.0)
 
@@ -138,6 +138,39 @@ def test_read_isq_density_and_bmd_conversion_use_extended_calibration(tmp_path):
     assert np.allclose(bmd_arr, density_arr)
     assert density_meta["unit"] == "BMD"
     assert bmd_meta["unit"] == "BMD"
+
+
+def test_read_isq_density_uses_attenuation_calibration_not_native_voxel_slope(tmp_path):
+    data = np.array([[[0, 4096, 8192]]], dtype=np.int16)
+    path = tmp_path / "density.ISQ"
+    slope, intercept = 1593.31103515625, -384.69000244140625
+    _write_tiny_isq(
+        path, data, extended_calibration=True, mu_scaling=8192,
+        rescale_slope=slope, rescale_intercept=intercept,
+    )
+    density, meta = api.read_isq(str(path), unit="density")
+
+    np.testing.assert_allclose(density, data.astype(float) / 8192 * slope + intercept)
+    assert meta["density_slope"] == slope
+    assert meta["rescale_slope"] == slope / 8192
+
+
+def test_isq_calibration_metadata_normalizes_slope_by_mu_scaling(tmp_path):
+    path = tmp_path / "density.ISQ"
+    _write_tiny_isq(path, np.array([[[8192]]], dtype=np.int16),
+                    extended_calibration=True, mu_scaling=8192,
+                    rescale_slope=1593.31103515625)
+    meta = api._augment_isq_meta(str(path), {"data_offset": 2560, "mu_scaling": 8192})
+    assert meta["rescale_slope"] == 1593.31103515625 / 8192
+
+
+def test_isq_density_rejects_zero_mu_scaling(tmp_path):
+    path = tmp_path / "invalid.ISQ"
+    _write_tiny_isq(path, np.array([[[1]]], dtype=np.int16),
+                    extended_calibration=True, mu_scaling=0)
+    meta = api._augment_isq_meta(str(path), {"data_offset": 2560, "mu_scaling": 0})
+    with pytest.raises(ValueError, match="ISQ calibration metadata"):
+        api.get_isq_density_equation(meta)
 
 
 def test_read_isq_default_and_native_units_are_unchanged(tmp_path):

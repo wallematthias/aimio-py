@@ -81,6 +81,14 @@ def _augment_isq_meta(path: str, meta: dict) -> dict:
     meta = dict(meta)
     data_offset = int(meta.get("data_offset", 0) or 0)
     meta.update(_read_isq_calibration_metadata(path, data_offset))
+    if "rescale_slope" in meta:
+        # The calibration block stores density per attenuation [1/cm], while
+        # ISQ voxels contain attenuation multiplied by mu_scaling. Match the
+        # voxel-to-density convention used by vtkScancoCTReader and AIM logs.
+        meta["density_slope"] = meta.pop("rescale_slope")
+        mu_scaling = float(meta.get("mu_scaling", 0) or 0)
+        if mu_scaling > 0:
+            meta["rescale_slope"] = meta["density_slope"] / mu_scaling
     meta = _augment_sitk_geometry_meta(meta)
     return meta
 
