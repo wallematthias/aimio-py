@@ -101,11 +101,18 @@ def _read_metadata(handle: BinaryIO, path: str | Path) -> dict:
     if data_offset > file_size:
         raise ValueError("RSQ data offset extends beyond the file header and payload")
     payload_size = _DTYPE.itemsize * prod(shape)
-    if file_size - data_offset != payload_size:
+    expected_size = data_offset + payload_size
+    padding_size = file_size - expected_size
+    if padding_size and not (0 < padding_size == (-expected_size) % _BLOCK_SIZE):
         raise ValueError(
             f"RSQ payload size mismatch: expected {payload_size} bytes for shape {shape}, "
             f"found {file_size - data_offset}"
         )
+    if padding_size:
+        handle.seek(expected_size)
+        padding = handle.read(padding_size)
+        if len(padding) != padding_size or any(padding):
+            raise ValueError("RSQ block padding must contain only zero bytes")
 
     if words[127]:
         handle.seek(words[127] * _BLOCK_SIZE)
@@ -130,6 +137,7 @@ def _read_metadata(handle: BinaryIO, path: str | Path) -> dict:
         ),
         "data_offset_bytes": data_offset,
         "payload_size_bytes": payload_size,
+        "padding_size_bytes": padding_size,
         "unit": "detector_counts",
         "count_range": (words[21], words[22]),
         "frame_interpretation": (
@@ -144,8 +152,9 @@ def _read_metadata(handle: BinaryIO, path: str | Path) -> dict:
 def rsq_info(path: str | Path) -> dict:
     """Read RSQ metadata and validate storage without reading detector payload.
 
-    Only the base header and final calibration block are read. File size must
-    match the declared shape and offset exactly. ``header_words`` contains all
+    Only headers and optional final-block padding are read, not detector counts.
+    File size must match the declared shape and offset, optionally followed by
+    zero bytes up to the next 512-byte boundary. ``header_words`` contains all
     128 little-endian unsigned words; patient-name fields are not decoded.
     Interpreted geometry is exposed with provenance and is not spatial image
     geometry. Recognized but corrupt beam-hardening calibration raises

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import struct
+import warnings
 
 import numpy as np
 
@@ -46,17 +47,26 @@ def _unpack_vms_float(data: bytes, offset: int) -> float:
     return struct.unpack("<f", reordered)[0] / 4.0
 
 
-def _decode_profile(payload: bytes) -> list[int]:
+def _decode_profile(payload: bytes, *, width: int | None = None) -> list[int]:
     values: list[int] = []
     index = 0
     while index < len(payload):
         value = payload[index]
-        if value & 0x80 and index + 1 < len(payload):
-            values.extend([payload[index + 1]] * (256 - value))
+        if value & 0x80:
+            if index + 1 >= len(payload):
+                raise ValueError("SCV RLE profile is truncated")
+            repeat = 256 - value
+            if width is not None and len(values) + repeat > width:
+                raise ValueError("SCV profile exceeds its declared width")
+            values.extend([payload[index + 1]] * repeat)
             index += 1
         else:
+            if width is not None and len(values) >= width:
+                raise ValueError("SCV profile exceeds its declared width")
             values.append(value)
         index += 1
+    if width is not None and len(values) != width:
+        raise ValueError("SCV profile does not match its declared width")
     return values
 
 
@@ -96,28 +106,62 @@ def _parse_header(data: bytes) -> dict:
     }
 
 
-def _parse_records(data: bytes) -> list[tuple[_ScvRecord, bytes]]:
+def _unwrap_vms_records(data: bytes) -> tuple[bytes, list[int]]:
+    """Remove RMS length words/alignment, retaining physical profile offsets."""
+    chunks: list[bytes] = []
+    profile_offsets: list[int] = []
+    offset = 0
+    while offset < len(data):
+        if offset + 2 > len(data):
+            raise ValueError("SCV VMS record length is truncated")
+        size = _unpack_from("<H", data, offset)
+        start = offset + 2
+        end = start + size
+        aligned_end = end + size % 2
+        if aligned_end > len(data):
+            raise ValueError("SCV VMS record or alignment padding is truncated")
+        # RMS word-aligns odd-length records; the extra byte is not data and
+        # need not be zero (binary saveset extracts can retain any value).
+        if not chunks:
+            if size != SCV_RECORD_START:
+                raise ValueError("Unsupported SCV VMS header record length")
+        else:
+            if size < 9 or _unpack_from("<H", data, start + 6) + 8 != size:
+                raise ValueError("SCV VMS record length does not match its profile")
+            profile_offsets.append(start)
+        chunks.append(data[start:end])
+        offset = aligned_end
+    return b"".join(chunks), profile_offsets
+
+
+def _parse_records(data: bytes, width: int) -> list[tuple[_ScvRecord, bytes]]:
     records: list[tuple[_ScvRecord, bytes]] = []
     offset = SCV_RECORD_START
     while offset < len(data):
-        if offset + 10 > len(data):
+        if offset + 8 > len(data):
             raise ValueError("SCV profile record is truncated")
 
+        if _unpack_from("<H", data, offset) != 3:
+            raise ValueError("Unsupported SCV profile record marker")
         phase = _unpack_from("<H", data, offset + 4)
-        position = _unpack_from("<f", data, offset) / 4.0 + phase / 131072.0
+        position = _unpack_vms_float(data, offset + 2)
+        if not np.isfinite(position):
+            raise ValueError("SCV profile position is not finite")
         byte_count = _unpack_from("<H", data, offset + 6)
-        aux = _unpack_from("<H", data, offset + 8)
-        if byte_count < 2:
+        if byte_count < 1:
             raise ValueError("Invalid SCV profile byte count")
 
-        payload_offset = offset + 10
-        payload_size = byte_count - 2
+        payload_offset = offset + 8
+        payload_size = byte_count
         next_offset = offset + 8 + byte_count
         if next_offset > len(data):
             raise ValueError("SCV profile extends beyond end of file")
 
         payload = data[payload_offset:next_offset]
-        decoded_size = len(_decode_profile(payload))
+        # Retain the historical raw-word field for metadata compatibility.
+        # It is compressed pixel data, NOT an offset or a separate header.
+        aux = int.from_bytes(payload[:2], "little")
+        decoded_size = len(_decode_profile(payload, width=width))
         records.append(
             (
                 _ScvRecord(
@@ -161,10 +205,26 @@ def _build_meta(path: str | Path, header: dict, records: list[tuple[_ScvRecord, 
         float(header["dim_y_mm"]) / height if height else 1.0,
         1.0,
     )
+    header_spacing = spacing
+    row_positions = tuple(float(record.position) for record, _payload in records)
+    steps = np.diff(row_positions)
+    uniform_rows = bool(
+        not steps.size or
+        (np.all(steps > 0) and np.allclose(steps, np.median(steps), atol=3e-5, rtol=1e-4))
+    )
+    pixel_space = not uniform_rows or not all(np.isfinite(s) and s > 0 for s in spacing)
+    geometry_warning = ""
+    if pixel_space:
+        spacing = (1.0, 1.0, 1.0)
+        geometry_warning = (
+            "SCV loaded in pixel space: repeated/nonuniform row coordinates or invalid "
+            "header extents prevent reliable physical geometry. Do not use it for physical "
+            "measurements or registration; use a calibrated RAD radiograph when available."
+        )
     first_row_position_mm = float(records[0][0].position)
     position = (
         0,
-        int(first_row_position_mm / spacing[1]) if spacing[1] else 0,
+        0 if pixel_space else int(first_row_position_mm / spacing[1]),
         0,
     )
     origin = tuple(position[i] * spacing[i] for i in range(3))
@@ -172,6 +232,12 @@ def _build_meta(path: str | Path, header: dict, records: list[tuple[_ScvRecord, 
     meta.update(
         {
             "filename": str(path),
+            "geometry_unit": "pixel" if pixel_space else "mm",
+            "geometry_source": "pixel_index" if pixel_space else "ipl_header",
+            "geometry_warning": geometry_warning,
+            "header_spacing": header_spacing,
+            "row_positions_mm": row_positions,
+            "row_positions_uniform": uniform_rows,
             "header_dimensions": (height, width),
             "dimensions": (height, width),
             "position": position,
@@ -189,30 +255,44 @@ def _build_meta(path: str | Path, header: dict, records: list[tuple[_ScvRecord, 
     return meta
 
 
+def _read_scv_records(path: str | Path) -> tuple[dict, list[tuple[_ScvRecord, bytes]]]:
+    data = Path(path).read_bytes()
+    # A VMS variable-length header record wraps the 107-byte SCV header,
+    # whose own two-byte prefix is 3. Stream exports omit the RMS wrapper.
+    wrapped = data[:4] == b"\x6b\x00\x03\x00"
+    if wrapped:
+        data, profile_offsets = _unwrap_vms_records(data)
+    header = _parse_header(data)
+    records = _parse_records(data, int(header["dim_x_pixel"]))
+    if len(records) > int(header["dim_y_pixel"]):
+        raise ValueError("SCV has more profile records than its declared height")
+    header["storage_format"] = "vms_variable_records" if wrapped else "stream"
+    if wrapped:
+        records = [
+            (replace(record, file_offset=offset, payload_offset=offset + 8), payload)
+            for (record, payload), offset in zip(records, profile_offsets, strict=True)
+        ]
+        header["record_start"] = profile_offsets[0]
+    return header, records
+
+
 def scv_info(path: str | Path) -> dict:
     """Read SCV scout-view metadata without loading the reconstructed image."""
-    data = Path(path).read_bytes()
-    header = _parse_header(data)
-    records = _parse_records(data)
+    header, records = _read_scv_records(path)
     return _build_meta(path, header, records)
 
 
 def read_scv(path: str | Path) -> tuple[np.ndarray, dict]:
-    """Read a Scanco SCV scout-view file as a 2D uint8 NumPy array."""
-    data = Path(path).read_bytes()
-    header = _parse_header(data)
-    records = _parse_records(data)
+    """Read stream or VMS-record Scanco SCV files as a 2D uint8 NumPy array."""
+    header, records = _read_scv_records(path)
     meta = _build_meta(path, header, records)
+    if meta["geometry_warning"]:
+        warnings.warn(meta["geometry_warning"], UserWarning, stacklevel=2)
 
     height, width = meta["dimensions"]
     image = np.zeros((height, width), dtype=np.uint8)
 
     for row, (record, payload) in enumerate(records[:height]):
-        profile = np.asarray(_decode_profile(payload), dtype=np.uint8)
-        left = max(0, 256 - int(record.aux))
-        right = min(width, left + profile.size)
-        if right <= left:
-            continue
-        image[row, left:right] = profile[: right - left]
+        image[row] = _decode_profile(payload, width=width)
 
     return image, meta

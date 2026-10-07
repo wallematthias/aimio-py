@@ -6,7 +6,7 @@
 
 Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) C++ library.
 
-`aimio-py` provides a small Python API to read and write AIM files as NumPy arrays, read ISQ, SCV, and GOBJ files, inspect metadata, and work with processing logs.
+`aimio-py` provides a small Python API to read and write AIM files as NumPy arrays, read ISQ, SCV, GOBJ, RAD, and RSQ files, inspect metadata, and work with processing logs.
 
 ## Features
 
@@ -14,10 +14,11 @@ Python bindings for the [Numerics88 AimIO](https://github.com/Numerics88/AimIO) 
 - Write AIM files from NumPy arrays
 - Read ISQ files into NumPy arrays
 - Read SCV scout-view files into NumPy arrays
+- Read native RAD radiographs with header-derived mm spacing
 - Read GOBJ contour masks into binary NumPy volumes
-- Read AIM, ISQ, SCV, or GOBJ files with single `read_image` and `image_info` dispatchers
+- Read AIM, ISQ, SCV, GOBJ, RAD, or RSQ files with single `read_image` and `image_info` dispatchers
 - Read RSQ raw detector projections with optional read-only memory mapping
-- Access AIM, ISQ, SCV, GOBJ, and RSQ header metadata (`aim_info`, `isq_info`, `scv_info`, `gobj_info`, `rsq_info`)
+- Access format-specific header metadata (`aim_info`, `isq_info`, `scv_info`, `gobj_info`, `rad_info`, `rsq_info`)
 - Convert processing logs between text and dictionary formats
 - Optional density/HU conversion helpers
 
@@ -56,17 +57,19 @@ The matching metadata CLI uses the same format resolution:
 aimio-info scan.AIM
 aimio-info mask.GOBJ --format gobj
 aimio-info projections.RSQ --format rsq
+aimio-info scout.RAD --format rad
 ```
 
 ## Reading Options
 
-`read_image()` detects AIM, ISQ, SCV, GOBJ, and RSQ files from the extension and
+`read_image()` detects AIM, ISQ, SCV, GOBJ, RAD, and RSQ files from the extension and
 forwards any extra keyword arguments to the format-specific reader.
 
 ```python
 aim, aim_meta = read_image("scan.AIM", density=True)
 isq, isq_meta = read_image("scan.ISQ", unit="density")
 scout, scout_meta = read_image("scout.SCV")
+radiograph, rad_meta = read_image("scout.RAD")
 mask, mask_meta = read_image("mask.GOBJ", value=1, crop="tight")
 counts, rsq_meta = read_image("projections.RSQ", mmap=True)
 ```
@@ -76,6 +79,7 @@ The format-specific readers are also available directly:
 - AIM: `read_aim(path, density=False, hu=False)`
 - ISQ: `read_isq(path, unit="native")`, where `unit` can be `"native"`, `"hu"`, `"density"`, or `"bmd"`
 - SCV: `read_scv(path)`
+- RAD: `read_rad(path)`
 - GOBJ: `read_gobj(path, value=127, crop="tight")`, where `crop` can be `"tight"` or `"header"`
 - RSQ: `read_rsq(path, *, mmap=False)`
 
@@ -93,9 +97,10 @@ Format-specific readers and metadata helpers are also available:
 - `read_aim(path, density=False, hu=False) -> (array, meta)`
 - `read_isq(path, unit="native") -> (array, meta)`
 - `read_scv(path) -> (array, meta)`
+- `read_rad(path) -> (array, meta)`
 - `read_gobj(path, value=127, crop="tight") -> (array, meta)`
 - `read_rsq(path, *, mmap=False) -> (counts, meta)`
-- `aim_info(path)`, `isq_info(path)`, `scv_info(path)`, `gobj_info(path)`, `rsq_info(path)`
+- `aim_info(path)`, `isq_info(path)`, `scv_info(path)`, `gobj_info(path)`, `rad_info(path)`, `rsq_info(path)`
 - `write_aim(path, array, meta=None, unit=None)`
 - `get_aim_density_equation(processing_log)`
 - `get_aim_hu_equation(processing_log)`
@@ -116,6 +121,49 @@ filled contours including their boundary. Subtractive contours, such as inner
 cortical boundaries, remove only the strict contour interior so the contour
 boundary remains part of the mask. `crop="tight"` returns the contour bounding
 box, while `crop="header"` returns the full CTDATA header grid.
+
+SCV scout readers accept both stream exports and binary extracts that retain
+VMS variable-length record wrappers. RMS length words and odd-record alignment
+bytes are skipped in memory; the source file is never rewritten. Outer record
+lengths must match the enclosed SCV profiles. Metadata reports `storage_format`
+(`stream` or `vms_variable_records`), and record/payload offsets refer to the
+original file, including any wrappers.
+
+SCV profile records contain a two-byte marker, a VMS F-floating row coordinate,
+a compressed-byte count, and the **complete** run-length-encoded pixel row.
+The first two compressed bytes are pixels, not a separate horizontal offset.
+Each decoded row must match the declared width; truncated runs and excess
+records are rejected. The `aux` and `phase` fields remain raw compatibility
+metadata, not geometry parameters.
+
+The historical SCV `spacing`/`origin` convention matches IPL's `scv_to_aim`
+output for the paired reference scout. This does not establish calibrated
+physical geometry for every scanner variant: scouts with repeated/nonuniform
+row coordinates or invalid extents load with unit spacing and zero origin in
+**pixel space**, with a warning. `geometry_unit`, `geometry_source`, and
+`geometry_warning` identify this fallback; `row_positions_mm` and
+`header_spacing` retain the original information. Do not use pixel-space scouts
+for physical measurements or registration. Stripping VMS wrappers alone does
+not repair such geometry.
+
+## RAD radiographs
+
+`read_rad(path)` returns a native signed-int16 **2D** array in `(row, column)`
+order; `rad_info(path)` inspects the header and validates storage without loading
+pixels. The pure-Python reader supports `CTDATA-HEADER_V1`, type-9 radiographs,
+including extra header blocks and optional zero padding to the next 512-byte
+boundary. The source file is never rewritten.
+
+RAD physical dimensions are **nanometres**, unlike ISQ's micrometres. Metadata
+converts them to mm in `physical_dimensions_mm`, `spacing`, and `element_size`;
+`dimensions` is `(width, height, 1)`, and the placeholder third-axis spacing is
+1 mm, not a measured slice thickness. `origin=(0,0,0)` and identity direction
+describe a standalone display plane, **not co-registration with CT**.
+`z_position_mm`, `reference_line_mm`, and scan start/end positions are retained
+separately. No HU/density conversion is supported for this projection image.
+
+Header interpretation follows the RAD branch of
+[David Gobbi's vtk-dicom Scanco reader](https://github.com/dgobbi/vtk-dicom/blob/master/Source/vtkScancoCTReader.cxx).
 
 ## RSQ raw projections
 
@@ -151,11 +199,14 @@ geometry. Words 21 and 22 are exposed as `count_range`; they do not define
 attenuation scaling. Patient-name fields are not decoded, although raw header
 words can still contain identifying data.
 
-Both readers validate positive dimensions and require an exact payload length
+Both readers validate positive dimensions and require a detector payload length
 of `2 * product(shape)` bytes after offset `512 * (header_words[127] + 1)`.
-Unsupported magic, truncated data, and trailing payload bytes are rejected.
-`rsq_info()` checks file size and reads only the base header and final 512-byte
-header block. When that block contains a recognized `Beamhard.Corr.` title,
+An optional zero-filled tail extending exactly to the next 512-byte boundary
+is accepted for VMS block-aligned extracts and reported as `padding_size_bytes`.
+Unsupported magic, truncated data, nonzero padding, and other trailing bytes
+are rejected. `rsq_info()` checks file size and reads only the base header,
+final 512-byte header block, and any padding, not detector counts.
+When that block contains a recognized `Beamhard.Corr.` title,
 three float64 coefficients at bytes 476:500 are checked against the printed
 `Corr at 2 3 6:` anchors using
 `delta(p) = a1*p + a2*p**2 + a3*p**3` with absolute tolerance `1e-6`.

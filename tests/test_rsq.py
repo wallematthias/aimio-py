@@ -194,6 +194,47 @@ def test_rsq_reads_without_extra_header_blocks(tmp_path):
     assert info["beam_hardening"]["available"] is False
 
 
+@pytest.mark.parametrize("mmap", [False, True])
+def test_rsq_reads_zero_padding_to_the_next_vms_block(tmp_path, mmap):
+    path = write_rsq(tmp_path / "padded.RSQ")
+    original = path.read_bytes()
+    # 1536 header bytes + 48 count bytes need 464 bytes to reach 2048.
+    path.write_bytes(original + b"\x00" * 464)
+
+    counts, meta = api.read_rsq(path, mmap=mmap)
+
+    assert np.array_equal(counts, COUNTS)
+    assert counts.shape == (2, 4, 3)
+    assert meta["payload_size_bytes"] == 48
+    assert meta["padding_size_bytes"] == 464
+    assert api.rsq_info(path)["padding_size_bytes"] == 464
+    assert path.read_bytes() == original + b"\x00" * 464
+
+
+@pytest.mark.parametrize("padding", [
+    b"\x00" * 463,
+    b"\x00" * 465,
+    b"\x00" * 976,
+    b"\x00" * 463 + b"\x01",
+])
+@pytest.mark.parametrize("reader", ["read_rsq", "rsq_info"])
+def test_rsq_rejects_invalid_vms_block_padding(tmp_path, padding, reader):
+    path = write_rsq(tmp_path / "invalid_padding.RSQ")
+    path.write_bytes(path.read_bytes() + padding)
+
+    with pytest.raises(ValueError, match="payload|padding|size"):
+        getattr(api, reader)(path)
+
+
+def test_rsq_rejects_an_extra_block_for_an_already_aligned_payload(tmp_path):
+    counts = np.arange(256, dtype="<u2").reshape(1, 1, 256)
+    path = write_rsq(tmp_path / "aligned.RSQ", counts=counts, extra_blocks=0)
+    path.write_bytes(path.read_bytes() + b"\x00" * 512)
+
+    with pytest.raises(ValueError, match="payload|padding|size"):
+        api.rsq_info(path)
+
+
 @pytest.mark.parametrize("title", [b"Beamhard.Corr.", b"PREFIX__Beamhard.Corr."])
 def test_rsq_validates_recognized_beam_hardening_coefficients(tmp_path, title):
     path = write_rsq(

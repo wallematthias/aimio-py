@@ -69,8 +69,8 @@ jobs:
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >-
-            python -c "from py_aimio import isq_info, read_isq, rsq_info, read_rsq; import py_aimio._aimio as _ext; print(_ext.__file__)"
-            && python -m pytest {project}/tests/test_rsq.py -q
+            python -c "from py_aimio import isq_info, read_isq, rsq_info, read_rsq, scv_info, read_scv, rad_info, read_rad; import py_aimio._aimio as _ext; print(_ext.__file__)"
+            && python -m pytest {project}/tests/test_rsq.py {project}/tests/test_scv_bindings.py {project}/tests/test_rad.py -q
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_BEFORE_ALL_LINUX: >-
             if command -v yum >/dev/null 2>&1; then yum install -y boost-devel;

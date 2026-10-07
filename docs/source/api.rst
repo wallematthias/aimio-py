@@ -18,3 +18,6 @@ The API reference is generated from package docstrings.
 
 .. automodule:: py_aimio.rsq
    :members: read_rsq, rsq_info
+
+.. automodule:: py_aimio.rad
+   :members: read_rad, rad_info
