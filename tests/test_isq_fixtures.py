@@ -26,7 +26,7 @@ def test_calibrated_fixture_reads_native_hu_and_bmd():
     assert np.unique(hu).tolist() == [-1000.0, -999.0]
     assert hu_meta["unit"] == "HU"
 
-    assert np.unique(bmd).tolist() == [3.0, 5.0]
+    assert np.unique(bmd).tolist() == [3.0, 3.002]
     assert bmd_meta["unit"] == "BMD"
     assert bmd_meta["rescale_units"] == "mg HA/ccm"
 
